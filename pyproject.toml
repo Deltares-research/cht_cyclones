@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cht_cyclones"
+#TODO
+#description = "Combining of tidal components to time series"
+readme = "README.md"
+authors = [
+    { name = "Julian Hofer", email = "Julian.Hofer@deltares.nl" },
+    { name = "Sarwan Peiter", email = "Sarwan.Peiter@deltares.nl" },
+]
+license = { text = "MIT" }
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Hydrology",
+]
+requires-python = ">=3.10"
+dependencies = ["numpy", "scipy", "pandas", "geopandas","matplotlib", "shapely","fiona"]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+tests = ["pytest"]
+
+[tool.setuptools]
+zip-safe = true
+
+[tool.setuptools.dynamic]
+version = { attr = "cht_cyclones.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["cht_cyclones"]
+
+[tool.setuptools.package-data]
+"cht_observations" = ["py.typed"]
+
+# TODO
+#[project.urls]
+#Documentation = "https://deltares.github.io/CoastalHazardTools"
+#Source = "https://github.com/Deltares/CoastalHazardTools"

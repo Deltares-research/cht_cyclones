@@ -1,0 +1,19 @@
+name: cht_cyclones
+
+channels:
+  - conda-forge
+
+dependencies:
+  - black
+  - build
+  - mypy
+  - pip
+  - numpy
+  - scipy
+  - pandas
+  - geopandas
+  - matplotlib
+  - shapely
+  - pytest
+  - python=3.10
+  - twine

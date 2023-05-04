@@ -243,7 +243,7 @@ class TropicalCyclone:
             self.track = self.track.drop([0])  # remove the dummy
             self.track = self.track.reset_index(drop=True)
             if self.debug == 1:
-                print("Succesfully read track - ddb_cyc")
+                print("Successfully read track - ddb_cyc")
 
         elif fmt == "jmv30":
             print("to do: work on progress")
@@ -333,7 +333,7 @@ class TropicalCyclone:
                     f.writelines("\n")
 
             if self.debug == 1:
-                print("Succesfully written track - ddb_cyc")
+                print("Successfully written track - ddb_cyc")
         else:
             print(
                 'For other methods of writing the track; please used the "tc.track.to_file" option'
@@ -579,7 +579,7 @@ class TropicalCyclone:
             # Done
             self.track = self.track.reset_index(drop=True)
             if self.debug == 1:
-                print("Succesfully extended track")
+                print("Successfully extended track")
 
         else:
             if self.debug == 1:
@@ -1075,7 +1075,7 @@ class TropicalCyclone:
         self.cut_off_low_wind_speeds()
         self.extent_track()
 
-        # 4. account for forward speed (computes several derivate values)
+        # 4. account for forward speed (computes several derivative values)
         self.account_for_forward_speed()
 
         # 5. Define grid and output
@@ -1098,7 +1098,7 @@ class TropicalCyclone:
             coords = self.track.geometry[it]
             lat = coords.y
 
-            # Get derivate values
+            # Get derivative values
             ux = self.track.vtx[it]  # forward speed - x
             uy = self.track.vty[it]  # forward speed - y
             vt = np.sqrt(
@@ -1163,12 +1163,12 @@ class TropicalCyclone:
                 # Finally, fit profile
                 [vr, pr] = holland2010(r, vmax_rel, pc, pn, rmax, dpcdt, lat, vt, xn)
 
-            # Assume constant xn that follows a relationship decribed in 2008 paper
+            # Assume constant xn that follows a relationship described in 2008 paper
             elif self.wind_profile == "holland2008":
                 xn = 0.6 * (1 - dp / 215)
                 [vr, pr] = holland2010(r, vmax_rel, pc, pn, rmax, dpcdt, lat, vt, xn)
 
-            # Orginal Holland uses a constant xn of 0.5
+            # Original Holland uses a constant xn of 0.5
             elif self.wind_profile == "holland1980":
                 xn = 0.5
                 [vr, pr] = holland2010(r, vmax_rel, pc, pn, rmax, dpcdt, lat, vt, xn)
@@ -1218,7 +1218,7 @@ class TropicalCyclone:
             else:
                 raise Exception("This asymmetry_option is not supported")
 
-            # wind speed with assymetry
+            # wind speed with asymmetry
             vx = wind_speed * np.cos(wind_to_direction_cart * np.pi / 180) + u_prop
             vy = wind_speed * np.sin(wind_to_direction_cart * np.pi / 180) + v_prop
 
@@ -1245,7 +1245,7 @@ class TropicalCyclone:
                 # More options to be added later
                 # Bader, Bacla, etc.
 
-            # Save into a dictonary for spiderweb
+            # Save into a dictionary for spiderweb
             spiderweb_dict["wind_speed"] = wind_speed
             spiderweb_dict["wind_from_direction"] = wind_from_direction
             spiderweb_dict["pressure"] = pn - pressure_drop / 100  # pa - hPa
@@ -1383,7 +1383,7 @@ class TropicalCyclone:
         # We are done here
         fid.close()
         if self.debug == 1:
-            print("Succesfully written spiderweb to " + filename)
+            print("Successfully written spiderweb to " + filename)
 
 
 # Classes of classes

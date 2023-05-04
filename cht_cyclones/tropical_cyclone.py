@@ -4,7 +4,7 @@ Tropical Cyclone Module in the Coastal Hazards Toolkit
 
 Module supports two classes
     TropicalCyclone:             deterministic simulations
-    TropicalCycloneEnsemble      probablistic simulations using the simplified DeMaria et al. (2009) approach
+    TropicalCycloneEnsemble      probabilistic simulations using the simplified DeMaria et al. (2009) approach
 
     To do list - priority
         netcdf spiderwebs
@@ -1831,7 +1831,7 @@ def wind_radii_nederhoff(vmax, lat, region, probability):
 
     Returns
     -------
-    rmax    : dictonary with mode and possible more
+    rmax    : dictionary with mode and possible more
     r35     : ''
     """
     # radius of maximum winds (rmw or rmax)
@@ -2032,7 +2032,7 @@ def fit_wind_field_holland2010(
     vt = 0.6 * vtreal
 
     if lat > 0:
-        phia = 45  # angle with respect to track angle (cartesian degrees, i.e. couter-clockwise)
+        phia = 45  # angle with respect to track angle (cartesian degrees, i.e. counter-clockwise)
     else:
         phia = -45
 
@@ -2276,7 +2276,7 @@ def fit_wind_field_holland2010(
     return [xn, vt, phia]
 
 
-# defintiion to compute wind field
+# definition to compute wind field
 def compute_wind_field(
     r, phi, vmax, pc, rmax, pn, vtreal, phit, lat, dpdt, phi_spiral, xn, vt, phia
 ):

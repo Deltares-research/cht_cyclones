@@ -2317,7 +2317,7 @@ def compute_mean_error(r, w, obs, wrad):
 
     # variables
     nrad = np.size(obs["quadrants_radii"], 0)
-    nrad = 1  # not we are only fitting R35, nothing else
+    # nrad = 1  # not we are only fitting R35, nothing else
     nq = np.size(obs["quadrants_radii"], 1)
     iq1 = [0, 9, 18, 27]
     iq2 = [9, 18, 27, 36]

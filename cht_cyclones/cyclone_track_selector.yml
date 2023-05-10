@@ -2,7 +2,7 @@ window:
   title: Select Cyclone Track ...
   width: 800
   height: 500
-  module: cht.tropical_cyclone.cyclone_track_database
+  module: cht_cyclones.cyclone_track_database
   variable_group: cyclone_track_selector
   modal: True
   cancel: True

@@ -8,6 +8,7 @@ dependencies:
   - build
   - mypy
   - pip
+  - netcdf4
   - numpy
   - scipy
   - xarray
@@ -18,3 +19,4 @@ dependencies:
   - pytest
   - python=3.10
   - twine
+  - xarray

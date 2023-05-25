@@ -8,6 +8,7 @@ name = "cht_cyclones"
 #description = "Combining of tidal components to time series"
 readme = "README.md"
 authors = [
+    { name = "Maarten van Ormondt", email = "maarten.vanormondt@deltares.nl"},
     { name = "Julian Hofer", email = "Julian.Hofer@deltares.nl" },
     { name = "Sarwan Peiter", email = "Sarwan.Peiter@deltares.nl" },
 ]
@@ -17,7 +18,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
 requires-python = ">=3.10"
-dependencies = ["numpy", "scipy", "pandas", "geopandas","matplotlib", "shapely","fiona"]
+dependencies = ["numpy", "scipy", "pandas", "geopandas","matplotlib", "shapely","xarray"]
 dynamic = ["version"]
 
 [project.optional-dependencies]

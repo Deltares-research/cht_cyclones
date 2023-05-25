@@ -10,6 +10,7 @@ dependencies:
   - pip
   - numpy
   - scipy
+  - xarray
   - pandas
   - geopandas
   - matplotlib

@@ -244,7 +244,7 @@ def compute_distance(lon1, lat1, lon2, lat2):
 def map_ready():
     try:
         from app import app
-    except:
+    except Exception:
         # This should be removed. ddb in Delft Dashboard should be renamed to app!
         from ddb import ddb as app
 
@@ -274,7 +274,7 @@ def map_ready():
 def update_tracks():
     try:
         from app import app
-    except:
+    except Exception:
         # This should be removed. ddb in Delft Dashboard should be renamed to app!
         from ddb import ddb as app
 
@@ -308,7 +308,7 @@ def map_moved(coords):
 def select_track(feature):
     try:
         from app import app
-    except:
+    except Exception:
         # This should be removed. ddb in Delft Dashboard should be renamed to app!
         from ddb import ddb as app
 

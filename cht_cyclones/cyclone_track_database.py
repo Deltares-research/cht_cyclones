@@ -12,28 +12,111 @@ from .tropical_cyclone import TropicalCyclone
 
 
 class CycloneTrackDatabase:
-    def __init__(self, name, file_name=None):
-        if name == "ibtracs":
-            self.name = name
-            self.ds = xr.open_dataset(file_name)
-            # Read in database
-            self.lon = self.ds["lon"].values[:]
-            self.lat = self.ds["lat"].values[:]
-            self.basin = self.ds["basin"].values[:, 0].astype(str).tolist()
-            self.name = self.ds["name"].values[:].astype(str).tolist()
-            self.year = self.ds["season"].values[:].astype(int)
-            self.nstorms = np.shape(self.lon)[0]
-            self.ntimes = np.shape(self.lon)[1]
+    """
+    CycloneTrackDatabase is a class that reads in a database of tropical cyclone
+    tracks and provides methods to filter the database and return a geopandas
+    dataframe of the tracks.
 
+    Parameters
+    ----------
+    name : str
+        Name of the database. Currently only "ibtracs" is supported.
+    file_name : str
+        File name of the database. Currently only "ibtracs" is supported.
+
+    Attributes
+    ----------
+    name : str
+        Name of the database. Currently only "ibtracs" is supported.
+    ds : xarray.Dataset
+        Dataset of the database.
+    lon : numpy.ndarray
+        Longitude of the tracks.
+    lat : numpy.ndarray
+        Latitude of the tracks.
+    basin : list
+        Basin of the tracks.
+    name : list
+        Name of the tracks.
+    year : numpy.ndarray
+        Year of the tracks.
+    nstorms : int
+        Number of storms in the database.
+    ntimes : int
+        Number of time steps in the database.
+    """
+
+    def __init__(self, name, file_name=None):
+        self.name = name
+        self.file_name = file_name
+        self.ds = None
+        self.lon = None
+        self.lat = None
+        self.basin = None
+        self.name = None
+        self.year = None
+        self.nstorms = None
+        self.ntimes = None
+
+        if name == "ibtracs":
+            self._read_ibtracs(file_name)
         else:
             pass
 
+    def _read_ibtracs(self, file_name):
+        """
+        Read in IBTrACS database
+
+        Parameters
+        ----------
+        file_name : str
+            File name of the IBTrACS database.
+
+        Returns
+        -------
+        None
+        """
+
+        # Read in database
+        self.ds = xr.open_dataset(file_name)
+
+        # Convert to numpy arrays
+        self.lon = self.ds["lon"].values[:]
+        self.lat = self.ds["lat"].values[:]
+        self.basin = self.ds["basin"].values[:, 0].astype(str).tolist()
+        self.name = self.ds["name"].values[:].astype(str).tolist()
+        self.year = self.ds["season"].values[:].astype(int)
+        self.nstorms = np.shape(self.lon)[0]
+        self.ntimes = np.shape(self.lon)[1]
+
     def get_track(self, index):
+        """
+        Get a single track from the database.
+
+        Parameters
+        ----------
+        index : int
+            Index of the track in the database.
+
+        Returns
+        -------
+        tc : TropicalCyclone
+            TropicalCyclone object of the track.
+        """
+
+        # Create a TropicalCyclone object
         tc = TropicalCyclone(name=self.name[index])
+
+        # Add track
         for it in range(self.ntimes):
+            # Check if track is finite
             if not np.isfinite(self.lon[index, it]):
                 break
+
+            # Create a shapely point
             point = shapely.Point(self.lon[index, it], self.lat[index, it])
+
+            # Initialize data for geopandas dataframe
             t = self.ds["time"].values[index, it]
             tc_time_string = datetime.datetime.utcfromtimestamp(
                 t.item() / 10**9
@@ -61,6 +144,8 @@ class CycloneTrackDatabase:
             R100_SE = -999.0
             R100_SW = -999.0
             R100_NW = -999.0
+
+            # Create a geopandas dataframe
             gdf = gpd.GeoDataFrame(
                 {
                     "datetime": [tc_time_string],
@@ -86,6 +171,8 @@ class CycloneTrackDatabase:
                     "R100_NW": [R100_NW],
                 }
             )
+
+            # Set CRS coordinate system
             gdf.set_crs(epsg=4326, inplace=True)
 
             # Append self
@@ -99,12 +186,28 @@ class CycloneTrackDatabase:
         return tc
 
     def to_gdf(self, index=None):
+        """
+        Returns a geopandas dataframe of the tracks.
+
+        Parameters
+        ----------
+        index : list
+            List of indices of the tracks to return. If None, all tracks are returned.
+
+        Returns
+        -------
+        gdf : geopandas.GeoDataFrame
+            Geopandas dataframe of the tracks.
+        """
+
+        # Initialize
         geom = []
         iok = []
         if index is None:
             index = range(self.nstorms)
         description = []
-        # Returns a gdf with tracks
+
+        # Loop over tracks
         for ind in index:
             lon = self.lon[ind, :]
             lat = self.lat[ind, :]
@@ -116,6 +219,8 @@ class CycloneTrackDatabase:
                 )
                 iok.append(ind)
                 description.append(self.name[ind] + " (" + str(self.year[ind]) + ")")
+
+        # Create geopandas dataframe
         gdf = gpd.GeoDataFrame(crs=4326, geometry=geom)
         names = [self.name[i] for i in iok]
         years = self.year[iok]
@@ -136,6 +241,35 @@ class CycloneTrackDatabase:
         year_min=None,
         year_max=None,
     ):
+        """
+        Filter the database and return the indices of the filtered tracks.
+
+        Parameters
+        ----------
+        name : str
+            Name of the track to filter by.
+        distance : float
+            Distance (km) of the track to the point (lon, lat).
+        lon : list
+            Longitude range of the tracks.
+        lat : list
+            Latitude range of the tracks.
+        basin : str
+            Basin of the tracks.
+        year : int
+            Year of the tracks.
+        year_min : int
+            Minimum year of the tracks.
+        year_max : int
+            Maximum year of the tracks.
+
+        Returns
+        -------
+        index : list
+            List of indices of the filtered tracks.
+        """
+
+        # Initialize year_min and year_max
         if year:
             year_min = year
             year_max = year
@@ -145,6 +279,7 @@ class CycloneTrackDatabase:
             if not year_max:
                 year_max = 9999
 
+        # Filter by basin
         if basin:
             ibasin = np.array(
                 [
@@ -156,11 +291,13 @@ class CycloneTrackDatabase:
         else:
             ibasin = np.arange(0, self.nstorms)
 
+        # Filter by year
         if year_min and year_max:
             iyear = np.where((self.year >= year_min) & (self.year <= year_max))[0]
         else:
             iyear = np.arange(0, self.nstorms)
 
+        # Filter by name
         if name:
             iname = np.array(
                 [
@@ -172,6 +309,7 @@ class CycloneTrackDatabase:
         else:
             iname = np.arange(0, self.nstorms)
 
+        # Filter by bounding box
         if isinstance(lon, list) and isinstance(lat, list):
             inear = np.where(
                 (self.lon >= lon[0])
@@ -183,30 +321,58 @@ class CycloneTrackDatabase:
         else:
             ibbox = np.arange(0, self.nstorms)
 
+        # Filter by distance
         if distance:
             # Compute distance of all tracks to point
-            d = compute_distance(lon, lat, self.lon, self.lat)
+            d = CycloneTrackDatabase.compute_distance(lon, lat, self.lon, self.lat)
             dmin = np.nanmin(d, axis=1)
             idist = np.where(dmin < distance)[0]
-
         else:
             idist = np.arange(0, self.nstorms)
 
+        # Intersect all filters
         index = reduce(np.intersect1d, (ibasin, iyear, iname, idist, ibbox))
 
         return index
 
+    @staticmethod
+    def compute_distance(lon1, lat1, lon2, lat2):
+        """
+        Compute the distance between two points on a sphere.
 
-def compute_distance(lon1, lat1, lon2, lat2):
-    R = 6373.0
-    lon1 = lon1 * np.pi / 180
-    lat1 = lat1 * np.pi / 180
-    lon2 = lon2 * np.pi / 180
-    lat2 = lat2 * np.pi / 180
-    dlon = lon2 - lon1
-    dlon[np.where(dlon < -np.pi)] = dlon[np.where(dlon < -np.pi)] + 2 * np.pi
-    dlon[np.where(dlon > np.pi)] = dlon[np.where(dlon > np.pi)] - 2 * np.pi
-    dlat = lat2 - lat1
-    a = (np.sin(dlat / 2)) ** 2 + np.cos(lat1) * np.cos(lat2) * (np.sin(dlon / 2)) ** 2
-    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
-    return R * c
+        Parameters
+        ----------
+        lon1 : numpy.ndarray
+            Longitude of the first point.
+        lat1 : numpy.ndarray
+            Latitude of the first point.
+        lon2 : numpy.ndarray
+            Longitude of the second point.
+        lat2 : numpy.ndarray
+            Latitude of the second point.
+
+        Returns
+        -------
+        d : numpy.ndarray
+            Distance between the points.
+        """
+
+        # Convert to radians
+        R = 6373.0
+        lon1 = lon1 * np.pi / 180
+        lat1 = lat1 * np.pi / 180
+        lon2 = lon2 * np.pi / 180
+        lat2 = lat2 * np.pi / 180
+        dlon = lon2 - lon1
+
+        # Wrap around
+        dlon[np.where(dlon < -np.pi)] = dlon[np.where(dlon < -np.pi)] + 2 * np.pi
+        dlon[np.where(dlon > np.pi)] = dlon[np.where(dlon > np.pi)] - 2 * np.pi
+        dlat = lat2 - lat1
+
+        # Compute distance
+        a = (np.sin(dlat / 2)) ** 2 + np.cos(lat1) * np.cos(lat2) * (
+            np.sin(dlon / 2)
+        ) ** 2
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+        return R * c

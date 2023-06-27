@@ -1,5 +1,4 @@
 import datetime
-import os
 from functools import reduce
 
 import geopandas as gpd

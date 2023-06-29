@@ -64,7 +64,7 @@ class TropicalCyclone:
             "schwerdt1979"  # asymmetry_options: schwerdt1979, mvo, none
         )
         self.reference_time = datetime(1970, 1, 1)  # used when writing out spiderweb
-        self.include_rainfall = False  # logic: 0 is no and 1 is yes
+        self.include_rainfall = True  # logic: 0 is no and 1 is yes
         self.rainfall_relationship = "ipet"  # rainfall_relationship: ipet
         self.rainfall_factor = 1.0  # factor to calibrate rainfall
 

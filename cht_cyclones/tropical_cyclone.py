@@ -168,11 +168,11 @@ class TropicalCyclone:
             # Read the track
             for i in range(len(lines)):
                 line = lines[i]
-                if line[0:8] == "#   Date":
+                if line[0:10] == "##    Date":
                     break
 
             # Place coordinates in Tropical Cyclone Track
-            for j in range(i + 2, len(lines)):
+            for j in range(i + 1, len(lines)):
                 # Get values
                 line = lines[j]
                 line = line.split()

@@ -57,6 +57,21 @@ class CycloneTrackDatabase:
             # R100_SE = self.ds["usa_r100"].values[index, it, 1]
             # R100_SW = self.ds["usa_r100"].values[index, it, 2]
             # R100_NW = self.ds["usa_r100"].values[index, it, 3]
+            vmax    = np.nan_to_num(vmax, copy=True, nan=-999.0)
+            pc      = np.nan_to_num(pc, copy=True, nan=-999.0)
+            RMW     = np.nan_to_num(RMW, copy=True, nan=-999.0)
+            R35_NE  = np.nan_to_num(R35_NE, copy=True, nan=-999.0)
+            R35_SE  = np.nan_to_num(R35_SE, copy=True, nan=-999.0)
+            R35_SW  = np.nan_to_num(R35_SW, copy=True, nan=-999.0)
+            R35_NW  = np.nan_to_num(R35_NW, copy=True, nan=-999.0)
+            R50_NE  = np.nan_to_num(R50_NE, copy=True, nan=-999.0)
+            R50_SE  = np.nan_to_num(R50_SE, copy=True, nan=-999.0)
+            R50_SW  = np.nan_to_num(R50_SW, copy=True, nan=-999.0)
+            R50_NW  = np.nan_to_num(R50_NW, copy=True, nan=-999.0)
+            R65_NE  = np.nan_to_num(R65_NE, copy=True, nan=-999.0)
+            R65_SE  = np.nan_to_num(R65_SE, copy=True, nan=-999.0)
+            R65_SW  = np.nan_to_num(R65_SW, copy=True, nan=-999.0)
+            R65_NW  = np.nan_to_num(R65_NW, copy=True, nan=-999.0)
             R100_NE = -999.0
             R100_SE = -999.0
             R100_SW = -999.0
@@ -241,7 +256,7 @@ def compute_distance(lon1, lat1, lon2, lat2):
 ### Callback functions for track selector ###
 
 
-def map_ready():
+def map_ready(mapbox):
     try:
         from app import app
     except Exception:
@@ -301,11 +316,11 @@ def update_tracks():
     tracks_layer.set_data(gdf, 0)
 
 
-def map_moved(coords):
+def map_moved(coords, mapbox):
     pass
 
 
-def select_track(feature):
+def select_track(feature, mapbox):
     try:
         from app import app
     except Exception:

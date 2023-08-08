@@ -168,7 +168,7 @@ class TropicalCyclone:
             # Read the track
             for i in range(len(lines)):
                 line = lines[i]
-                if line[0:10] == "##    Date":
+                if line[0:10] == "##    Date":  # TODO: this seems super sketchy!!!
                     break
 
             # Place coordinates in Tropical Cyclone Track

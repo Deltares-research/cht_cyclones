@@ -1,5 +1,4 @@
 import datetime
-import os
 from functools import reduce
 
 import geopandas as gpd
@@ -12,28 +11,111 @@ from .tropical_cyclone import TropicalCyclone
 
 
 class CycloneTrackDatabase:
-    def __init__(self, name, file_name=None):
-        if name == "ibtracs":
-            self.name = name
-            self.ds = xr.open_dataset(file_name)
-            # Read in database
-            self.lon = self.ds["lon"].values[:]
-            self.lat = self.ds["lat"].values[:]
-            self.basin = self.ds["basin"].values[:, 0].astype(str).tolist()
-            self.name = self.ds["name"].values[:].astype(str).tolist()
-            self.year = self.ds["season"].values[:].astype(int)
-            self.nstorms = np.shape(self.lon)[0]
-            self.ntimes = np.shape(self.lon)[1]
+    """
+    CycloneTrackDatabase is a class that reads in a database of tropical cyclone
+    tracks and provides methods to filter the database and return a geopandas
+    dataframe of the tracks.
 
+    Parameters
+    ----------
+    name : str
+        Name of the database. Currently only "ibtracs" is supported.
+    file_name : str
+        File name of the database. Currently only "ibtracs" is supported.
+
+    Attributes
+    ----------
+    name : str
+        Name of the database. Currently only "ibtracs" is supported.
+    ds : xarray.Dataset
+        Dataset of the database.
+    lon : numpy.ndarray
+        Longitude of the tracks.
+    lat : numpy.ndarray
+        Latitude of the tracks.
+    basin : list
+        Basin of the tracks.
+    name : list
+        Name of the tracks.
+    year : numpy.ndarray
+        Year of the tracks.
+    nstorms : int
+        Number of storms in the database.
+    ntimes : int
+        Number of time steps in the database.
+    """
+
+    def __init__(self, name, file_name=None):
+        self.name = name
+        self.file_name = file_name
+        self.ds = None
+        self.lon = None
+        self.lat = None
+        self.basin = None
+        self.name = None
+        self.year = None
+        self.nstorms = None
+        self.ntimes = None
+
+        if name == "ibtracs":
+            self._read_ibtracs(file_name)
         else:
             pass
 
+    def _read_ibtracs(self, file_name):
+        """
+        Read in IBTrACS database
+
+        Parameters
+        ----------
+        file_name : str
+            File name of the IBTrACS database.
+
+        Returns
+        -------
+        None
+        """
+
+        # Read in database
+        self.ds = xr.open_dataset(file_name)
+
+        # Convert to numpy arrays
+        self.lon = self.ds["lon"].values[:]
+        self.lat = self.ds["lat"].values[:]
+        self.basin = self.ds["basin"].values[:, 0].astype(str).tolist()
+        self.name = self.ds["name"].values[:].astype(str).tolist()
+        self.year = self.ds["season"].values[:].astype(int)
+        self.nstorms = np.shape(self.lon)[0]
+        self.ntimes = np.shape(self.lon)[1]
+
     def get_track(self, index):
+        """
+        Get a single track from the database.
+
+        Parameters
+        ----------
+        index : int
+            Index of the track in the database.
+
+        Returns
+        -------
+        tc : TropicalCyclone
+            TropicalCyclone object of the track.
+        """
+
+        # Create a TropicalCyclone object
         tc = TropicalCyclone(name=self.name[index])
+
+        # Add track
         for it in range(self.ntimes):
+            # Check if track is finite
             if not np.isfinite(self.lon[index, it]):
                 break
+
+            # Create a shapely point
             point = shapely.Point(self.lon[index, it], self.lat[index, it])
+
+            # Initialize data for geopandas dataframe
             t = self.ds["time"].values[index, it]
             tc_time_string = datetime.datetime.utcfromtimestamp(
                 t.item() / 10**9
@@ -57,25 +139,27 @@ class CycloneTrackDatabase:
             # R100_SE = self.ds["usa_r100"].values[index, it, 1]
             # R100_SW = self.ds["usa_r100"].values[index, it, 2]
             # R100_NW = self.ds["usa_r100"].values[index, it, 3]
-            vmax    = np.nan_to_num(vmax, copy=True, nan=-999.0)
-            pc      = np.nan_to_num(pc, copy=True, nan=-999.0)
-            RMW     = np.nan_to_num(RMW, copy=True, nan=-999.0)
-            R35_NE  = np.nan_to_num(R35_NE, copy=True, nan=-999.0)
-            R35_SE  = np.nan_to_num(R35_SE, copy=True, nan=-999.0)
-            R35_SW  = np.nan_to_num(R35_SW, copy=True, nan=-999.0)
-            R35_NW  = np.nan_to_num(R35_NW, copy=True, nan=-999.0)
-            R50_NE  = np.nan_to_num(R50_NE, copy=True, nan=-999.0)
-            R50_SE  = np.nan_to_num(R50_SE, copy=True, nan=-999.0)
-            R50_SW  = np.nan_to_num(R50_SW, copy=True, nan=-999.0)
-            R50_NW  = np.nan_to_num(R50_NW, copy=True, nan=-999.0)
-            R65_NE  = np.nan_to_num(R65_NE, copy=True, nan=-999.0)
-            R65_SE  = np.nan_to_num(R65_SE, copy=True, nan=-999.0)
-            R65_SW  = np.nan_to_num(R65_SW, copy=True, nan=-999.0)
-            R65_NW  = np.nan_to_num(R65_NW, copy=True, nan=-999.0)
+            vmax = np.nan_to_num(vmax, copy=True, nan=-999.0)
+            pc = np.nan_to_num(pc, copy=True, nan=-999.0)
+            RMW = np.nan_to_num(RMW, copy=True, nan=-999.0)
+            R35_NE = np.nan_to_num(R35_NE, copy=True, nan=-999.0)
+            R35_SE = np.nan_to_num(R35_SE, copy=True, nan=-999.0)
+            R35_SW = np.nan_to_num(R35_SW, copy=True, nan=-999.0)
+            R35_NW = np.nan_to_num(R35_NW, copy=True, nan=-999.0)
+            R50_NE = np.nan_to_num(R50_NE, copy=True, nan=-999.0)
+            R50_SE = np.nan_to_num(R50_SE, copy=True, nan=-999.0)
+            R50_SW = np.nan_to_num(R50_SW, copy=True, nan=-999.0)
+            R50_NW = np.nan_to_num(R50_NW, copy=True, nan=-999.0)
+            R65_NE = np.nan_to_num(R65_NE, copy=True, nan=-999.0)
+            R65_SE = np.nan_to_num(R65_SE, copy=True, nan=-999.0)
+            R65_SW = np.nan_to_num(R65_SW, copy=True, nan=-999.0)
+            R65_NW = np.nan_to_num(R65_NW, copy=True, nan=-999.0)
             R100_NE = -999.0
             R100_SE = -999.0
             R100_SW = -999.0
             R100_NW = -999.0
+
+            # Create a geopandas dataframe
             gdf = gpd.GeoDataFrame(
                 {
                     "datetime": [tc_time_string],
@@ -101,6 +185,8 @@ class CycloneTrackDatabase:
                     "R100_NW": [R100_NW],
                 }
             )
+
+            # Set CRS coordinate system
             gdf.set_crs(epsg=4326, inplace=True)
 
             # Append self
@@ -114,12 +200,28 @@ class CycloneTrackDatabase:
         return tc
 
     def to_gdf(self, index=None):
+        """
+        Returns a geopandas dataframe of the tracks.
+
+        Parameters
+        ----------
+        index : list
+            List of indices of the tracks to return. If None, all tracks are returned.
+
+        Returns
+        -------
+        gdf : geopandas.GeoDataFrame
+            Geopandas dataframe of the tracks.
+        """
+
+        # Initialize
         geom = []
         iok = []
         if index is None:
             index = range(self.nstorms)
         description = []
-        # Returns a gdf with tracks
+
+        # Loop over tracks
         for ind in index:
             lon = self.lon[ind, :]
             lat = self.lat[ind, :]
@@ -131,6 +233,8 @@ class CycloneTrackDatabase:
                 )
                 iok.append(ind)
                 description.append(self.name[ind] + " (" + str(self.year[ind]) + ")")
+
+        # Create geopandas dataframe
         gdf = gpd.GeoDataFrame(crs=4326, geometry=geom)
         names = [self.name[i] for i in iok]
         years = self.year[iok]
@@ -151,6 +255,35 @@ class CycloneTrackDatabase:
         year_min=None,
         year_max=None,
     ):
+        """
+        Filter the database and return the indices of the filtered tracks.
+
+        Parameters
+        ----------
+        name : str
+            Name of the track to filter by.
+        distance : float
+            Distance (km) of the track to the point (lon, lat).
+        lon : list
+            Longitude range of the tracks.
+        lat : list
+            Latitude range of the tracks.
+        basin : str
+            Basin of the tracks.
+        year : int
+            Year of the tracks.
+        year_min : int
+            Minimum year of the tracks.
+        year_max : int
+            Maximum year of the tracks.
+
+        Returns
+        -------
+        index : list
+            List of indices of the filtered tracks.
+        """
+
+        # Initialize year_min and year_max
         if year:
             year_min = year
             year_max = year
@@ -160,6 +293,7 @@ class CycloneTrackDatabase:
             if not year_max:
                 year_max = 9999
 
+        # Filter by basin
         if basin:
             ibasin = np.array(
                 [
@@ -171,11 +305,13 @@ class CycloneTrackDatabase:
         else:
             ibasin = np.arange(0, self.nstorms)
 
+        # Filter by year
         if year_min and year_max:
             iyear = np.where((self.year >= year_min) & (self.year <= year_max))[0]
         else:
             iyear = np.arange(0, self.nstorms)
 
+        # Filter by name
         if name:
             iname = np.array(
                 [
@@ -187,6 +323,7 @@ class CycloneTrackDatabase:
         else:
             iname = np.arange(0, self.nstorms)
 
+        # Filter by bounding box
         if isinstance(lon, list) and isinstance(lat, list):
             inear = np.where(
                 (self.lon >= lon[0])
@@ -198,137 +335,58 @@ class CycloneTrackDatabase:
         else:
             ibbox = np.arange(0, self.nstorms)
 
+        # Filter by distance
         if distance:
             # Compute distance of all tracks to point
-            d = compute_distance(lon, lat, self.lon, self.lat)
+            d = CycloneTrackDatabase.compute_distance(lon, lat, self.lon, self.lat)
             dmin = np.nanmin(d, axis=1)
             idist = np.where(dmin < distance)[0]
-
         else:
             idist = np.arange(0, self.nstorms)
 
+        # Intersect all filters
         index = reduce(np.intersect1d, (ibasin, iyear, iname, idist, ibbox))
 
         return index
 
-    def track_selector(
-        self, app, lon=0.0, lat=0.0, distance=1000.0, year_min=1850, year_max=2030
-    ):
-        app.gui.setvar("cyclone_track_selector", "lon", lon)
-        app.gui.setvar("cyclone_track_selector", "lat", lat)
-        app.gui.setvar("cyclone_track_selector", "distance", distance)
-        app.gui.setvar("cyclone_track_selector", "year0", year_min)
-        app.gui.setvar("cyclone_track_selector", "year1", year_max)
-        app.gui.setvar("cyclone_track_selector", "name", "")
+    @staticmethod
+    def compute_distance(lon1, lat1, lon2, lat2):
+        """
+        Compute the distance between two points on a sphere.
 
-        data = {}
-        data["track_database"] = self
+        Parameters
+        ----------
+        lon1 : numpy.ndarray
+            Longitude of the first point.
+        lat1 : numpy.ndarray
+            Latitude of the first point.
+        lon2 : numpy.ndarray
+            Longitude of the second point.
+        lat2 : numpy.ndarray
+            Latitude of the second point.
 
-        # Read GUI config file
-        config = app.gui.read_gui_config(
-            os.path.dirname(__file__), "cyclone_track_selector.yml"
-        )
-        okay, data = app.gui.popup(config, data)
+        Returns
+        -------
+        d : numpy.ndarray
+            Distance between the points.
+        """
 
-        track = None
-        if okay:
-            # Get the track from the database
-            track = self.get_track(data["database_index"])
+        # Convert to radians
+        R = 6373.0
+        lon1 = lon1 * np.pi / 180
+        lat1 = lat1 * np.pi / 180
+        lon2 = lon2 * np.pi / 180
+        lat2 = lat2 * np.pi / 180
+        dlon = lon2 - lon1
 
-        return track, okay
+        # Wrap around
+        dlon[np.where(dlon < -np.pi)] = dlon[np.where(dlon < -np.pi)] + 2 * np.pi
+        dlon[np.where(dlon > np.pi)] = dlon[np.where(dlon > np.pi)] - 2 * np.pi
+        dlat = lat2 - lat1
 
-
-def compute_distance(lon1, lat1, lon2, lat2):
-    R = 6373.0
-    lon1 = lon1 * np.pi / 180
-    lat1 = lat1 * np.pi / 180
-    lon2 = lon2 * np.pi / 180
-    lat2 = lat2 * np.pi / 180
-    dlon = lon2 - lon1
-    dlon[np.where(dlon < -np.pi)] = dlon[np.where(dlon < -np.pi)] + 2 * np.pi
-    dlon[np.where(dlon > np.pi)] = dlon[np.where(dlon > np.pi)] - 2 * np.pi
-    dlat = lat2 - lat1
-    a = (np.sin(dlat / 2)) ** 2 + np.cos(lat1) * np.cos(lat2) * (np.sin(dlon / 2)) ** 2
-    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
-    return R * c
-
-
-### Callback functions for track selector ###
-
-
-def map_ready(mapbox):
-    try:
-        from app import app
-    except Exception:
-        # This should be removed. ddb in Delft Dashboard should be renamed to app!
-        from ddb import ddb as app
-
-    mp = app.gui.popup_window.find_element_by_id("track_selector_map").widget
-    mp.jump_to(0.0, 0.0, 1)
-    data = app.gui.popup_data
-    # Container layers
-    data["main_layer"] = mp.add_layer("track_selector")
-    # Tracks layers
-    data["track_layer"] = data["main_layer"].add_layer(
-        "tracks",
-        type="line_selector",
-        file_name="tracks.geojson",
-        select=select_track,
-        selection_type="single",
-        line_color="dodgerblue",
-        line_width=2,
-        line_color_selected="red",
-        line_width_selected=3,
-        hover_param="description",
-    )
-
-    # Update data in tracks layer
-    update_tracks()
-
-
-def update_tracks():
-    try:
-        from app import app
-    except Exception:
-        # This should be removed. ddb in Delft Dashboard should be renamed to app!
-        from ddb import ddb as app
-
-    data = app.gui.popup_data
-
-    tdb = data["track_database"]
-    tracks_layer = data["track_layer"]
-
-    # Get filter data
-    distance = app.gui.getvar("cyclone_track_selector", "distance")
-    year_min = app.gui.getvar("cyclone_track_selector", "year0")
-    year_max = app.gui.getvar("cyclone_track_selector", "year1")
-    lon = app.gui.getvar("cyclone_track_selector", "lon")
-    lat = app.gui.getvar("cyclone_track_selector", "lat")
-
-    # Get indices based on filter
-    index = tdb.filter(
-        lon=lon, lat=lat, distance=distance, year_min=year_min, year_max=year_max
-    )
-
-    # Get GeoDataFrame of tracks
-    gdf = tdb.to_gdf(index=index)
-
-    tracks_layer.set_data(gdf, 0)
-
-
-def map_moved(coords, mapbox):
-    pass
-
-
-def select_track(feature, mapbox):
-    try:
-        from app import app
-    except Exception:
-        # This should be removed. ddb in Delft Dashboard should be renamed to app!
-        from ddb import ddb as app
-
-    app.gui.popup_data["database_index"] = feature["properties"]["database_index"]
-
-
-def edit_filter(*args):
-    update_tracks()
+        # Compute distance
+        a = (np.sin(dlat / 2)) ** 2 + np.cos(lat1) * np.cos(lat2) * (
+            np.sin(dlon / 2)
+        ) ** 2
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+        return R * c

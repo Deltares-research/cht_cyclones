@@ -199,6 +199,12 @@ class CycloneTrackDatabase:
 
         return tc
 
+    def list_names(self, index=None):
+        if index is not None:
+            return [self.name[i] for i in index]
+        else:
+            return self.name
+
     def to_gdf(self, index=None):
         """
         Returns a geopandas dataframe of the tracks.
@@ -254,6 +260,8 @@ class CycloneTrackDatabase:
         year=None,
         year_min=None,
         year_max=None,
+        vmax_min=None,
+        vmax_max=None,
     ):
         """
         Filter the database and return the indices of the filtered tracks.
@@ -293,6 +301,11 @@ class CycloneTrackDatabase:
             if not year_max:
                 year_max = 9999
 
+        if not vmax_min:
+            vmax_min = 0.0
+        if not vmax_max:
+            vmax_max = 9999.0
+
         # Filter by basin
         if basin:
             ibasin = np.array(
@@ -310,6 +323,12 @@ class CycloneTrackDatabase:
             iyear = np.where((self.year >= year_min) & (self.year <= year_max))[0]
         else:
             iyear = np.arange(0, self.nstorms)
+
+        # # Filter by vmax
+        # if vmax_min and vmax_max:
+        #     ivmax = np.where((self.year >= year_min) & (self.year <= year_max))[0]
+        # else:
+        #     iyear = np.arange(0, self.nstorms)
 
         # Filter by name
         if name:

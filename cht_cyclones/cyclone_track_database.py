@@ -304,7 +304,7 @@ class CycloneTrackDatabase:
         if not vmax_min:
             vmax_min = 0.0
         if not vmax_max:
-            vmax_max = 9999.0    
+            vmax_max = 9999.0
 
         # Filter by basin
         if basin:

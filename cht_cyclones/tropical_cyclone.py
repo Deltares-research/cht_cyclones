@@ -27,6 +27,7 @@ import pandas as pd
 from scipy.interpolate import CubicSpline, interp1d
 from scipy.ndimage.filters import uniform_filter1d
 from shapely.geometry import LineString, MultiLineString, Point, mapping
+from pyproj import CRS
 
 # Settings
 dateformat_module = "%Y%m%d %H%M%S"
@@ -115,133 +116,150 @@ class TropicalCyclone:
     def read_track(self, filename, fmt):
         # If ddb_cyc
         if fmt == "ddb_cyc":
-            # Read all the lines first
+
+            # Read all the lines in the file first (we really need to change this into toml format ...)
             with open(filename, "r") as f:
                 lines = f.readlines()
 
-            # Define the name first
-            for line in lines:
-                if line[0:4] == "Name":
-                    string_value = line[5:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.name = string_value
-
-            # Define other variables names (if they exist)
-            for i in range(len(lines)):
-                line = lines[i]
-                if line[0:11] == "WindProfile":
-                    string_value = line[23:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.wind_profile = string_value
-                if line[0:20] == "WindPressureRelation":
-                    string_value = line[23:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.wind_pressure_relation = string_value
-                if line[0:12] == "RMaxRelation":
-                    string_value = line[23:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.rmw_relation = string_value
-                if line[0:18] == "Backgroundpressure":
-                    string_value = line[23:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.background_pressure = float(string_value)
-                if line[0:9] == "PhiSpiral":
-                    string_value = line[23:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.phi_spiral = float(string_value)
-                if line[0:20] == "WindConversionFactor":
-                    string_value = line[23:]
-                    self.wind_conversion_factor = float(string_value)
-                if line[0:15] == "SpiderwebRadius":
-                    string_value = line[23:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.spiderweb_radius = float(string_value)
-                if line[0:12] == "NrRadialBins":
-                    string_value = line[23:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.nr_radial_bins = int(string_value)
-                if line[0:17] == "NrDirectionalBins":
-                    string_value = line[23:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.nr_directional_bins = int(string_value)
-
-            # Read the track
-            for i in range(len(lines)):
-                line = lines[i]
-                if line[0:10] == "##    Date":  # TODO: this seems super sketchy!!!
+            # Loop through lines and get the keywords and values.
+            for iline, line in enumerate(lines):
+                # Get rid of carriage return, leading and trailing spaces
+                line = line.strip()
+                if line[0] == "#":
+                    # Comment line
+                    continue
+                # Split the line in keyword and value
+                strs = line.split()
+                key = strs[0]
+                val = strs[1]
+                # Check if key looks like a number
+                try:
+                    float(key)
+                    # It's a number, so we can get out of the loop
+                    # idata is the line where the data starts
+                    idata = iline
                     break
+                except:
+                    # A string
+                    pass
+                if key.lower() == "name":
+                    self.name = val
+                elif key.lower() == "windprofile":
+                    self.wind_profile = val
+                elif key.lower() == "windpressurerelation":
+                    self.wind_pressure_relation = val
+                elif key.lower() == "rmaxrelation":
+                    self.rmw_relation = val
+                elif key.lower() == "backgroundpressure":
+                    self.background_pressure = float(val)
+                elif key.lower() == "phispiral":
+                    self.phi_spiral = float(val)
+                elif key.lower() == "windconversionfactor":
+                    self.wind_conversion_factor = float(val)
+                elif key.lower() == "spiderwebradius":
+                    self.spiderweb_radius = float(val)
+                elif key.lower() == "nrradialbins":
+                    self.nr_radial_bins = int(val)
+                elif key.lower() == "nrdirectionalbins":
+                    self.nr_directional_bins = int(val)
+                elif key.lower() == "epsg":
+                    # EPSG is a string that can have spaces in it
+                    val = line[len(key) + 1 :].strip()
+                    # If val looks like an integer, then it is an integer
+                    try:
+                        int(val)
+                        val = int(val)
+                    except:
+                        # It is a string. Get the EPSG code.
+                        val = CRS(val).to_epsg()
+                    self.EPSG = val
+                elif key.lower() == "unitintensity":
+                    self.unit_intensity = val
+                elif key.lower() == "unitwindradii":
+                    self.unit_radii = val
 
-            # Place coordinates in Tropical Cyclone Track
-            for j in range(i + 1, len(lines)):
+            # Make empty lists of tc_time_string, lon, lat, vmax etc.
+            points = []
+            tc_time_string = []
+            vmax = []
+            pc = []
+            RMW = []
+            R35_NE = []
+            R35_SE = []
+            R35_SW = []
+            R35_NW = []
+            R50_NE = []
+            R50_SE = []
+            R50_SW = []
+            R50_NW = []
+            R65_NE = []
+            R65_SE = []
+            R65_SW = []
+            R65_NW = []
+            R100_NE = []
+            R100_SE = []
+            R100_SW = []
+            R100_NW = []
+
+            # Loop through lines and get the values
+            for j in range(idata, len(lines)):
                 # Get values
                 line = lines[j]
+                line = line.strip()
                 line = line.split()
                 date_format = "%Y%m%d %H%M%S"
                 date_string = line[0] + " " + line[1]
                 tc_time = datetime.strptime(date_string, date_format)
-                tc_time_string = tc_time.strftime(date_format)
-                y = float(line[2])
-                x = float(line[3])
-                vmax = float(line[4])
-                pc = float(line[5])
-                RMW = float(line[6])
+                tc_time_string.append(tc_time.strftime(date_format))
+                vmax.append(float(line[4]))
+                pc.append(float(line[5]))
+                RMW.append(float(line[6]))
+                R35_NE.append(float(line[7]))
+                R35_SE.append(float(line[8]))
+                R35_SW.append(float(line[9]))
+                R35_NW.append(float(line[10]))
+                R50_NE.append(float(line[11]))
+                R50_SE.append(float(line[12]))
+                R50_SW.append(float(line[13]))
+                R50_NW.append(float(line[14]))
+                R65_NE.append(float(line[15]))
+                R65_SE.append(float(line[16]))
+                R65_SW.append(float(line[17]))
+                R65_NW.append(float(line[18]))
+                R100_NE.append(float(line[19]))
+                R100_SE.append(float(line[20]))
+                R100_SW.append(float(line[21]))
+                R100_NW.append(float(line[22]))
+                points.append(Point(line[3], line[2]))
 
-                R35_NE = float(line[7])
-                R35_SE = float(line[8])
-                R35_SW = float(line[9])
-                R35_NW = float(line[10])
-
-                R50_NE = float(line[11])
-                R50_SE = float(line[12])
-                R50_SW = float(line[13])
-                R50_NW = float(line[14])
-
-                R65_NE = float(line[15])
-                R65_SE = float(line[16])
-                R65_SW = float(line[17])
-                R65_NW = float(line[18])
-
-                R100_NE = float(line[19])
-                R100_SE = float(line[20])
-                R100_SW = float(line[21])
-                R100_NW = float(line[22])
-
-                # Make GeoDataFrame
-                point = Point(x, y)
-                gdf = gpd.GeoDataFrame(
-                    {
-                        "datetime": [tc_time_string],
-                        "geometry": [point],
-                        "vmax": [vmax],
-                        "pc": [pc],
-                        "RMW": [RMW],
-                        "R35_NE": [R35_NE],
-                        "R35_SE": [R35_SE],
-                        "R35_SW": [R35_SW],
-                        "R35_NW": [R35_NW],
-                        "R50_NE": [R50_NE],
-                        "R50_SE": [R50_SE],
-                        "R50_SW": [R50_SW],
-                        "R50_NW": [R50_NW],
-                        "R65_NE": [R65_NE],
-                        "R65_SE": [R65_SE],
-                        "R65_SW": [R65_SW],
-                        "R65_NW": [R65_NW],
-                        "R100_NE": [R100_NE],
-                        "R100_SE": [R100_SE],
-                        "R100_SW": [R100_SW],
-                        "R100_NW": [R100_NW],
-                    }
-                )
-                gdf.set_crs(epsg=self.EPSG, inplace=True)
-
-                # Append self
-                self.track = pd.concat([self.track, gdf])
-
-            # Done with this
+            # Create GeoDataFrame
+            self.track = gpd.GeoDataFrame(
+                {
+                    "datetime": tc_time_string,
+                    "geometry": points,
+                    "vmax": vmax,
+                    "pc": pc,
+                    "RMW": RMW,
+                    "R35_NE": R35_NE,
+                    "R35_SE": R35_SE,
+                    "R35_SW": R35_SW,
+                    "R35_NW": R35_NW,
+                    "R50_NE": R50_NE,
+                    "R50_SE": R50_SE,
+                    "R50_SW": R50_SW,
+                    "R50_NW": R50_NW,
+                    "R65_NE": R65_NE,
+                    "R65_SE": R65_SE,
+                    "R65_SW": R65_SW,
+                    "R65_NW": R65_NW,
+                    "R100_NE": R100_NE,
+                    "R100_SE": R100_SE,
+                    "R100_SW": R100_SW,
+                    "R100_NW": R100_NW,
+                }
+            ).set_crs(epsg=self.EPSG, inplace=True)    
             self.track = self.track.reset_index(drop=True)
-            self.track = self.track.drop([0])  # remove the dummy
-            self.track = self.track.reset_index(drop=True)
+
             if self.debug == 1:
                 print("Successfully read track - ddb_cyc")
 

@@ -1158,7 +1158,7 @@ class TropicalCyclone:
                 # Finally, fit profile
                 [vr, pr] = holland2010(r, vmax_rel, pc, pn, rmax, dpcdt, lat, vt, xn)
 
-            # Assume constant xn that follows a relationship decribed in 2008 paper
+            # Assume constant xn that follows a relationship described in 2008 paper
             elif self.wind_profile == "holland2008":
                 xn = 0.6 * (1 - dp / 215)
                 [vr, pr] = holland2010(r, vmax_rel, pc, pn, rmax, dpcdt, lat, vt, xn)

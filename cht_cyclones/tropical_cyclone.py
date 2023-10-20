@@ -284,7 +284,7 @@ class TropicalCyclone:
     def provide_track(self, datetimes=[], lons=[], lats=[], winds=[], pressures=[], rmw=[], r35=[]):
 
         # All variables are Python lists and we simply place them in the right structure
-        # note that value -999 is a NaN for this moduel
+        # note that value -999 is a NaN for this module
         # we assume datetimes but convert them internally
         # R35 is a matrix with time and NE, SE, SW, NW Symmetric_Circle
         
@@ -315,7 +315,7 @@ class TropicalCyclone:
         self.track = self.track.reset_index(drop=True)
         self.track = self.track.drop([0])           # remove the dummy
         self.track = self.track.reset_index(drop=True)
-        if self.debug == 1: print('Succesfully placed track')
+        if self.debug == 1: print('Successfully placed track')
 
 
     # Writing 
@@ -385,7 +385,7 @@ class TropicalCyclone:
 
                     f.writelines("\n")
 
-            if self.debug == 1: print("Succesfully written track - ddb_cyc")
+            if self.debug == 1: print("Successfully written track - ddb_cyc")
         else:
             print('For other methods of writing the track; please used the "tc.track.to_file" option')
 
@@ -594,7 +594,7 @@ class TropicalCyclone:
 
             # Done
             self.track = self.track.reset_index(drop=True)
-            if self.debug == 1: print("Succesfully extended track")
+            if self.debug == 1: print("Successfully extended track")
 
         else:
             if self.debug == 1: print("No extending since number of days is zero or lower")
@@ -891,7 +891,7 @@ class TropicalCyclone:
                 dt                  = np.mean([dt1, dt2])
                 dpc                 = np.mean([dpc1, dpc2])
 
-            # Check dt so we do not divide by zero (always assume a minium of 10 min)    
+            # Check dt so we do not divide by zero (always assume a minimum of 10 min)    
             if dt < 600:
                 dt = 600
                 
@@ -1077,7 +1077,7 @@ class TropicalCyclone:
         self.cut_off_low_wind_speeds()
         self.extent_track()
 
-        # 4. account for forward speed (computes several derivate values)
+        # 4. account for forward speed (computes several derivative values)
         self.account_for_forward_speed()
 
         # 5. Define grid and output
@@ -1105,7 +1105,7 @@ class TropicalCyclone:
             coords = self.track.geometry[it]
             lat = coords.y
 
-            # Get derivate values
+            # Get derivative values
             ux = self.track.vtx[it]  # forward speed - x
             uy = self.track.vty[it]  # forward speed - y
             vt = np.sqrt(
@@ -1163,7 +1163,7 @@ class TropicalCyclone:
                 xn = 0.6 * (1 - dp / 215)
                 [vr, pr] = holland2010(r, vmax_rel, pc, pn, rmax, dpcdt, lat, vt, xn)
 
-            # Orginal Holland uses a constant xn of 0.5
+            # Original Holland uses a constant xn of 0.5
             elif self.wind_profile == "holland1980":
                 xn = 0.5
                 [vr, pr] = holland2010(r, vmax_rel, pc, pn, rmax, dpcdt, lat, vt, xn)
@@ -1210,7 +1210,7 @@ class TropicalCyclone:
             else:
                 raise Exception('This asymmetry_option is not supported')
 
-            # wind speed with assymetry
+            # wind speed with asymmetry
             vx = wind_speed * np.cos(wind_to_direction_cart * np.pi / 180) + u_prop
             vy = wind_speed * np.sin(wind_to_direction_cart * np.pi / 180) + v_prop
 
@@ -1239,7 +1239,7 @@ class TropicalCyclone:
                 # More options to be added later
                 # Bader, Bacla, etc.
 
-            # Save into a dictonary for spiderweb
+            # Save into a dictionary for spiderweb
             spiderweb_dict["wind_speed"]            = wind_speed
             spiderweb_dict["wind_from_direction"]   = wind_from_direction
             spiderweb_dict["pressure"]              = pn - pressure_drop / 100                      # pa - hPa
@@ -1346,7 +1346,7 @@ class TropicalCyclone:
 
         # We are done here
         fid.close()
-        if self.debug == 1: print("Succesfully written spiderweb to " + filename)
+        if self.debug == 1: print("Successfully written spiderweb to " + filename)
 
     # Write in netcdf
     def write_spiderweb_netcdf(self, spiderweb, filename):
@@ -1692,10 +1692,10 @@ class TropicalCycloneEnsemble:
         forecast_timestep   = 0.0
 
         # Find index of ensemble_time equal to tstart_ensemble
-        itens0 = 0
+        items0 = 0
         for it in range(0, len(ensemble_time)):
             if ensemble_time[it] >= self.tstart_ensemble:
-                itens0 = it
+                items0 = it
                 break
 
         for it in range(0, len(ensemble_time2)):
@@ -1741,8 +1741,8 @@ class TropicalCycloneEnsemble:
                     ensemble_lat[it,:]  = best_track_lat2[it] + dy
                 elif self.position_method == 1:    
                     # Compute new position based on best track position and ate/cte
-                    lon0 = best_track_lon2[itens0]
-                    lat0 = best_track_lat2[itens0]
+                    lon0 = best_track_lon2[items0]
+                    lat0 = best_track_lat2[items0]
                     lon1 = best_track_lon2[it]
                     lat1 = best_track_lat2[it]
                     # Compute track heading based on latitude / longitude of two points
@@ -2265,7 +2265,7 @@ def fit_wind_field_holland2010(
     vt = 0.6 * vtreal
 
     if lat > 0:
-        phia = 45  # angle with respect to track angle (cartesian degrees, i.e. couter-clockwise)
+        phia = 45  # angle with respect to track angle (cartesian degrees, i.e. counter-clockwise)
     else:
         phia = -45
 
@@ -2681,7 +2681,7 @@ def to_geojson(cycfile, filename):
                                         feature_collection,
                                         "var track_data =")
 
-# Defintion to find if this is a land point
+# Definition to find if this is a land point
 def analyze_points_with_shapefile(shapefile_polygon, shapefile_polyline, latitudes, longitudes):
 
     # Read the shapefile

@@ -23,16 +23,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline, interp1d
-from scipy.ndimage.filters import uniform_filter1d
+from scipy.ndimage import uniform_filter1d
 from shapely.geometry import LineString, MultiLineString, Point, mapping
 from pyproj import CRS
 from shapely.ops import nearest_points
-
 import shapely
 from geojson import Feature, FeatureCollection
 import time
 import shapely
 from netCDF4 import Dataset
+import pyproj
+geodesic                    = pyproj.Geod(ellps='WGS84')
 
 
 # Settings
@@ -114,171 +115,115 @@ class TropicalCyclone:
         self.read_track(filename, "ddb_cyc")
 
     def read_track(self, filename, fmt):
+        
         # If ddb_cyc
-        if fmt == "ddb_cyc":
-
-            # Read all the lines in the file first (we really need to change this into toml format ...)
-            with open(filename, "r") as f:
+        if fmt == 'ddb_cyc':
+            
+            # Read all the lines first
+            with open(filename, 'r') as f:
                 lines = f.readlines()
-
-            # Loop through lines and get the keywords and values.
-            for iline, line in enumerate(lines):
-                # Get rid of carriage return, leading and trailing spaces
-                line = line.strip()
-                if line[0] == "#":
-                    # Comment line
-                    continue
-                # Split the line in keyword and value
-                strs = line.split()
-                key = strs[0]
-                val = strs[1]
-                # Check if key looks like a number
-                try:
-                    float(key)
-                    # It's a number, so we can get out of the loop
-                    # idata is the line where the data starts
-                    idata = iline
-                    break
-                except:
-                    # A string
-                    pass
-                if key.lower() == "name":
-                    self.name = val
-                elif key.lower() == "windprofile":
-                    self.wind_profile = val
-                elif key.lower() == "windpressurerelation":
-                    self.wind_pressure_relation = val
-                elif key.lower() == "rmaxrelation":
-                    self.rmw_relation = val
-                elif key.lower() == "backgroundpressure":
-                    self.background_pressure = float(val)
-                elif key.lower() == "phispiral":
-                    self.phi_spiral = float(val)
-                elif key.lower() == "windconversionfactor":
-                    self.wind_conversion_factor = float(val)
-                elif key.lower() == "spiderwebradius":
-                    self.spiderweb_radius = float(val)
-                elif key.lower() == "nrradialbins":
-                    self.nr_radial_bins = int(val)
-                elif key.lower() == "nrdirectionalbins":
-                    self.nr_directional_bins = int(val)
-                elif key.lower() == "epsg":
-                    # EPSG is a string that can have spaces in it
-                    val = line[len(key) + 1 :].strip()
-                    # If val looks like an integer, then it is an integer
-                    try:
-                        int(val)
-                        val = int(val)
-                    except:
-                        # It is a string. Get the EPSG code.
-                        val = CRS(val).to_epsg()
-                    self.EPSG = val
-                elif key.lower() == "unitintensity":
-                    self.unit_intensity = val
-                elif key.lower() == "unitwindradii":
-                    self.unit_radii = val
-
-            # Make empty lists of tc_time_string, lon, lat, vmax etc.
-            points = []
-            tc_time_string = []
-            vmax = []
-            pc = []
-            RMW = []
-            R35_NE = []
-            R35_SE = []
-            R35_SW = []
-            R35_NW = []
-            R50_NE = []
-            R50_SE = []
-            R50_SW = []
-            R50_NW = []
-            R65_NE = []
-            R65_SE = []
-            R65_SW = []
-            R65_NW = []
-            R100_NE = []
-            R100_SE = []
-            R100_SW = []
-            R100_NW = []
-
-            # Loop through lines and get the values
-            for j in range(idata, len(lines)):
+            
+            # Define the name first
+            for line in lines:
+                if line[0:4] == 'Name':                    
+                    string_value    = line[5:]
+                    string_value    = ''.join(ch for ch in string_value if ch.isalnum())
+                    self.name       = string_value
+            
+            # Define other variables names (if they exist)
+            for i in range(len(lines)):
+                line = lines[i]
+                if line[0:11] == 'WindProfile':    
+                    string_value                    = line[23:]
+                    string_value                    = ''.join(ch for ch in string_value if ch.isalnum())
+                    self.wind_profile               = string_value
+                if line[0:20] == 'WindPressureRelation':    
+                    string_value                    = line[23:]
+                    string_value                    = ''.join(ch for ch in string_value if ch.isalnum())
+                    self.wind_pressure_relation     = string_value
+                if line[0:12] == 'RMaxRelation':    
+                    string_value                    = line[23:]
+                    string_value                    = ''.join(ch for ch in string_value if ch.isalnum())
+                    self.rmw_relation               = string_value
+                if line[0:18] == 'Backgroundpressure':    
+                    string_value                    = line[23:]
+                    self.background_pressure        = float(string_value)
+                if line[0:9] == 'PhiSpiral':    
+                    string_value                    = line[23:]
+                    self.phi_spiral                 = float(string_value)
+                if line[0:20] == 'WindConversionFactor':    
+                    string_value                    = line[23:]
+                    self.wind_conversion_factor     = float(string_value)
+                if line[0:15] == 'SpiderwebRadius':    
+                    string_value                    = line[23:]
+                    self.spiderweb_radius           = float(string_value)
+                if line[0:12] == 'NrRadialBins':    
+                    string_value                    = line[23:]
+                    self.nr_radial_bins             = int(string_value)
+                if line[0:17] == 'NrDirectionalBins':    
+                    string_value                    = line[23:]
+                    self.nr_directional_bins        = int(string_value)
+                    
+            # Read the track
+            for i in range(len(lines)):
+                line = lines[i]
+                if line[0:15] == '##    Datetime ' or line[0:15] == '#   Date   Time':            
+                     break
+            
+            # Place coordinates in Tropical Cyclone Track 
+            for j in range(i+2,len(lines)):
+                
                 # Get values
-                line = lines[j]
-                line = line.strip()
-                line = line.split()
-                date_format = "%Y%m%d %H%M%S"
-                date_string = line[0] + " " + line[1]
-                tc_time = datetime.strptime(date_string, date_format)
-                tc_time_string.append(tc_time.strftime(date_format))
-                vmax.append(float(line[4]))
-                pc.append(float(line[5]))
-                RMW.append(float(line[6]))
-                R35_NE.append(float(line[7]))
-                R35_SE.append(float(line[8]))
-                R35_SW.append(float(line[9]))
-                R35_NW.append(float(line[10]))
-                R50_NE.append(float(line[11]))
-                R50_SE.append(float(line[12]))
-                R50_SW.append(float(line[13]))
-                R50_NW.append(float(line[14]))
-                R65_NE.append(float(line[15]))
-                R65_SE.append(float(line[16]))
-                R65_SW.append(float(line[17]))
-                R65_NW.append(float(line[18]))
-                R100_NE.append(float(line[19]))
-                R100_SE.append(float(line[20]))
-                R100_SW.append(float(line[21]))
-                R100_NW.append(float(line[22]))
-                points.append(Point(line[3], line[2]))
+                line            = lines[j]
+                line            = line.split()
+                date_format     = "%Y%m%d %H%M%S"
+                date_string     = line[0]  + ' ' + line[1] 
+                tc_time         = datetime.strptime(date_string, date_format)
+                tc_time_string  = tc_time.strftime(date_format)
+                y               = float(line[2])
+                x               = float(line[3])
+                vmax            = float(line[4])
+                pc              = float(line[5])
+                RMW             = float(line[6])
+                R35_NE          = float(line[7])
+                R35_SE          = float(line[8])
+                R35_SW          = float(line[9])
+                R35_NW          = float(line[10])
+                R50_NE          = float(line[11])
+                R50_SE          = float(line[12])
+                R50_SW          = float(line[13])
+                R50_NW          = float(line[14])
+                R65_NE          = float(line[15])
+                R65_SE          = float(line[16])
+                R65_SW          = float(line[17])
+                R65_NW          = float(line[18])
+                R100_NE         = float(line[19])
+                R100_SE         = float(line[20])
+                R100_SW         = float(line[21])
+                R100_NW         = float(line[22])
 
-            # Create GeoDataFrame
-            self.track = gpd.GeoDataFrame(
-                {
-                    "datetime": tc_time_string,
-                    "geometry": points,
-                    "vmax": vmax,
-                    "pc": pc,
-                    "RMW": RMW,
-                    "R35_NE": R35_NE,
-                    "R35_SE": R35_SE,
-                    "R35_SW": R35_SW,
-                    "R35_NW": R35_NW,
-                    "R50_NE": R50_NE,
-                    "R50_SE": R50_SE,
-                    "R50_SW": R50_SW,
-                    "R50_NW": R50_NW,
-                    "R65_NE": R65_NE,
-                    "R65_SE": R65_SE,
-                    "R65_SW": R65_SW,
-                    "R65_NW": R65_NW,
-                    "R100_NE": R100_NE,
-                    "R100_SE": R100_SE,
-                    "R100_SW": R100_SW,
-                    "R100_NW": R100_NW,
-                }
-            ).set_crs(epsg=self.EPSG, inplace=True)    
+                # Make GeoDataFrame     
+                point       = Point(x,y)
+                gdf         = gpd.GeoDataFrame({"datetime": [tc_time_string],"geometry": [point], "vmax": [vmax], "pc": [pc], "RMW": [RMW],
+                                        "R35_NE":  [R35_NE],  "R35_SE":  [R35_SE], "R35_SW":  [R35_SW],  "R35_NW": [R35_NW],
+                                        "R50_NE":  [R50_NE],  "R50_SE":  [R50_SE], "R50_SW":  [R50_SW],  "R50_NW": [R50_NW],
+                                        "R65_NE":  [R65_NE],  "R65_SE":  [R65_SE], "R65_SW":  [R65_SW],  "R65_NW": [R65_NW],
+                                        "R100_NE": [R100_NE], "R100_SE": [R100_SE],"R100_SW": [R100_SW], "R100_NW": [R100_NW]})    
+                gdf.set_crs(epsg=self.EPSG, inplace=True)
+               
+                # Append self
+                self.track = pd.concat([self.track,gdf]) 
+            
+            # Done with this
             self.track = self.track.reset_index(drop=True)
+            self.track = self.track.drop([0])           # remove the dummy
+            self.track = self.track.reset_index(drop=True)
+            if self.debug == 1: print('Succesfully read track - ddb_cyc')
 
-            if self.debug == 1:
-                print("Successfully read track - ddb_cyc")
-
-
-
-
-
-
-
-
-
-
-
-
-
-        elif fmt == "jmv30":
+        elif fmt == 'jmv30':
             print("to do: work on progress")
-        else:
-            raise Exception("This file format is not supported as read track!")
+        else: 
+            raise Exception('This file format is not supported as read track!')
 
     # Providing the track (from other source)   
     def provide_track(self, datetimes=[], lons=[], lats=[], winds=[], pressures=[], rmw=[], r35=[]):
@@ -925,11 +870,7 @@ class TropicalCyclone:
                 v_prop  = a*uy/uabs
             elif self.asymmetry_option == 'mvo':
                 uabs    = np.sqrt(ux**2 + uy**2)    # forward speed using x and y components
-
-
-
-
-                c2      = 0.6
+                a       = 0.6
                 u_prop  = a*ux/uabs               
                 v_prop  = a*uy/uabs
             elif self.asymmetry_option == 'none':
@@ -1009,15 +950,10 @@ class TropicalCyclone:
                 angles0b[3] = np.arange(180, 270 + 10, 10)  # nw
                 for iquad in range(0, 4):
                     if coords_it.y > 0:
-                        anglesb[iquad] = (
-                            angles0b[iquad] + self.phi_spiral
-                        )  # include spiralling effect
+                        anglesb[iquad] = angles0b[iquad] + self.phi_spiral        # include spiralling effect
                     else:
-                        anglesb[iquad] = (
-                            angles0b[iquad] - self.phi_spiral
-                        )  # include spiralling effect
-
-                    anglesb[iquad] = anglesb[iquad] * np.pi / 180  # convert to radians
+                        anglesb[iquad] = angles0b[iquad] - self.phi_spiral        # include spiralling effect
+                    anglesb[iquad] = anglesb[iquad] * np.pi / 180                 # convert to radians
 
                 # Go over quadrants: find angle with maximum winds flowing
                 angles = np.zeros((len(anglesb)))
@@ -1051,21 +987,16 @@ class TropicalCyclone:
                     for iquad in range(np.size(self.track.quadrants_speed[it],1)):
                         uabs = self.track.quadrants_speed[it][irad,iquad] * np.cos(angles[iquad])
                         vabs = self.track.quadrants_speed[it][irad,iquad] * np.sin(angles[iquad])
-
-
-
-
                         urel = uabs - u_prop
                         vrel = vabs - v_prop
                         self.track.quadrants_speed[it][irad,iquad] = np.sqrt(urel**2  + vrel**2)
-                        )
 
         # Done with the time steps
         if self.debug == 1:
             print("done with accounting for forward speed")
 
     # Create and write-out spiderweb
-    def to_spiderweb(self, filename, progress_bar=None):
+    def to_spiderweb(self, filename, progress_bar=None, format_type='ascii'):
         # 1. convert units to km and m/s
         self.convert_units_imperial_metric()
 
@@ -1089,46 +1020,38 @@ class TropicalCyclone:
 
         # 6. Go over time steps in the track
         for it in range(len(self.track)):
-#            print(str(it + 1) + " of " + str(len(self.track)))
+
+            # Progress bar
             if progress_bar:
                 progress_bar.set_value(it)
                 if progress_bar.was_canceled():
                     return
+                
             # Get values ready
-            dp = self.background_pressure - self.track.pc[it]
-            vmax = self.track.vmax[it]
-            pc = self.track.pc[it]
-            rmax = self.track.RMW[it]
-            pn = self.background_pressure
-            rhoa = self.rho_air
-            xn = 0.5
-            coords = self.track.geometry[it]
-            lat = coords.y
+            dp      = self.background_pressure - self.track.pc[it]
+            vmax    = self.track.vmax[it]
+            pc      = self.track.pc[it]
+            rmax    = self.track.RMW[it]
+            pn      = self.background_pressure
+            rhoa    = self.rho_air
+            xn      = 0.5
+            coords  = self.track.geometry[it]            
+            lat     = coords.y
 
-            # Get derivative values
-            ux = self.track.vtx[it]  # forward speed - x
-            uy = self.track.vty[it]  # forward speed - y
-            vt = np.sqrt(
-                self.track.vtx[it] ** 2 + self.track.vty[it] ** 2
-            )  # forward speed - magnitude
-            phit = (
-                np.arctan2(self.track.vty[it], self.track.vtx[it]) * 180 / np.pi
-            )  # angle
-            dpcdt = self.track.dpcdt[it]  # pressure gradient in time
-            vmax_rel = self.track.vmax_rel[it]  # intensity corrected for forward motion
+            # Get derivate values
+            ux      = self.track.vtx[it]                                                            # forward speed - x 
+            uy      = self.track.vty[it]                                                            # forward speed - y  
+            vt      = np.sqrt(self.track.vtx[it]**2  + self.track.vty[it]**2)                       # forward speed - magnitude
+            phit    = np.arctan2(self.track.vty[it],self.track.vtx[it]) * 180 / np.pi               # angle
+            dpcdt   = self.track.dpcdt[it]                                                          # pressure gradient in time
+            vmax_rel= self.track.vmax_rel[it]                                                       # intensity corrected for forward motion
 
             # initialize arrays
-            wind_speed = np.zeros((len(phi), len(r)))
-            wind_to_direction_cart = np.zeros((len(phi), len(r)))
-            pressure_drop = np.zeros((len(phi), len(r)))
-            rainfall_rate = np.zeros((len(phi), len(r)))
-            spiderweb_dict = {
-                "wind_speed": wind_speed,
-                "wind_from_direction": wind_speed,
-                "pressure_drop": wind_speed,
-                "pressure_drop": wind_speed,
-                "rainfall": rainfall_rate,
-            }
+            wind_speed              = np.zeros((len(phi), len(r)))
+            wind_to_direction_cart  = np.zeros((len(phi), len(r)))
+            pressure_drop           = np.zeros((len(phi), len(r)))
+            rainfall_rate           = np.zeros((len(phi), len(r)))
+            spiderweb_dict          = {'wind_speed': wind_speed, 'wind_from_direction': wind_speed, 'pressure_drop': wind_speed, 'pressure_drop': wind_speed, 'rainfall': rainfall_rate}
 
             # Holland et al. 2010
             if self.wind_profile == "holland2010":
@@ -1201,7 +1124,7 @@ class TropicalCyclone:
                 v_prop  = a*uy/uabs
             elif self.asymmetry_option == 'mvo':
                 uabs    = np.sqrt(ux**2 + uy**2)    # forward speed using x and y components
-                c2      = 0.6
+                a       = 0.6
                 u_prop  = a*ux/uabs               
                 v_prop  = a*uy/uabs
             elif self.asymmetry_option == 'none':
@@ -1220,7 +1143,7 @@ class TropicalCyclone:
             wind_from_direction = 180 * dr / np.pi
             wind_from_direction = np.remainder(wind_from_direction, 360)
 
-            # Scal wind speeds back to ensure we always reach vmax
+            # Scale wind speeds back to ensure we always reach vmax
             missing_factor      = vmax / np.max(wind_speed)
             wind_speed          = wind_speed*missing_factor
 
@@ -1516,14 +1439,11 @@ class TropicalCycloneEnsemble:
         # First set time variables based on best track
         if self.debug == 1: print("Started with making ensembles")
         self.number_of_realizations = number_of_realizations
-        geodesic                    = pyproj.Geod(ellps='WGS84')
 
         # Go over ensemble time steps
         ensemble_time   = []
         current_time    = self.tstart                   # set the current time to the start time
         delta           = timedelta(hours=self.dt)      # create a timedelta object representing a 1 hour time difference
-
-
         while current_time <= self.tend:  # loop until we reach the end time
             ensemble_time.append(current_time)  # add the current time to the list
             current_time += delta  # increment the current time by the time difference
@@ -1557,79 +1477,94 @@ class TropicalCycloneEnsemble:
         # Spline to requested times 
         best_track_time2                = [date.timestamp() for date in best_track_time]
         ensemble_time2                  = [date.timestamp() for date in ensemble_time]
-
-        best_track_lon2 = CubicSpline(best_track_time2, best_track_lon)
-        best_track_lon2 = best_track_lon2(ensemble_time2)
-        best_track_lat2 = CubicSpline(best_track_time2, best_track_lat)
-        best_track_lat2 = best_track_lat2(ensemble_time2)
-        best_track_vmax2 = CubicSpline(best_track_time2, best_track_vmax)
-        best_track_vmax2 = best_track_vmax2(ensemble_time2)
+        best_track_lon2                 = CubicSpline(best_track_time2,best_track_lon)
+        best_track_lon2                 = best_track_lon2(ensemble_time2)
+        best_track_lat2                 = CubicSpline(best_track_time2,best_track_lat)
+        best_track_lat2                 = best_track_lat2(ensemble_time2)
+        best_track_vmax2                = CubicSpline(best_track_time2,best_track_vmax)
+        best_track_vmax2                = best_track_vmax2(ensemble_time2)
+        best_track_rmw2                 = CubicSpline(best_track_time2,best_track_rmw)
+        best_track_rmw2                 = best_track_rmw2(ensemble_time2)
+        best_track_ar352                = CubicSpline(best_track_time2,best_track_ar35)
+        best_track_ar352                = best_track_ar352(ensemble_time2)
+        best_track_ar352                = best_track_ar352 - best_track_rmw2
 
         # Compute heading again
-        [forward_speed, heading] = compute_forward_speed_heading(
-            ensemble_time2, best_track_lon2, best_track_lat2
-        )
+        [forward_speed, heading] = compute_forward_speed_heading(ensemble_time2, best_track_lon2, best_track_lat2)
+
+        # Estimate likelyhood of this rmw value
+        quantiles_RMW                   = []
+        quantiles_AR35                  = []
+        for index, value in enumerate(best_track_rmw2):
+            
+            # Check quantile value of this rmw
+            # def wind_radii_nederhoff(vmax, lat, region, probability):
+            if self.best_track.unit_intensity == 'knots':
+                [rmax, dr35]        = wind_radii_nederhoff(best_track_vmax2[index]*knots_to_ms, best_track_lat2[index], 7, 1)
+            else:
+                [rmax, dr35]        = wind_radii_nederhoff(best_track_vmax2[index], best_track_lat2[index], 7, 1)
+
+            # Find quantiles
+            if self.best_track.unit_radii == 'nm':
+
+                # For RMW
+                rmax['numbers']     = np.sort(np.squeeze(rmax['numbers']))/nm_to_km
+                absolute_difference = np.abs(rmax['numbers'] - best_track_rmw2[index])
+                nearest_index       = np.argmin(absolute_difference)
+                nearest_value       = rmax['numbers'][nearest_index]
+                quantiles_RMW.append(nearest_index/len(rmax['numbers']))
+
+                # For AR35
+                dr35['numbers']     = np.sort(np.squeeze(dr35['numbers']))/nm_to_km
+                absolute_difference = np.abs(dr35['numbers'] - best_track_ar352[index])
+                nearest_index       = np.argmin(absolute_difference)
+                nearest_value       = rmax['numbers'][nearest_index]
+                quantiles_AR35.append(nearest_index/len(rmax['numbers']))
+
+            else:
+                print('error!')
 
         # Second, define all members with their first time step the same
         self.members                     = []
         for nn in range(self.number_of_realizations):
             
             # Add best track
-            new_member = TropicalCyclone(name="ensemble" + str(nn).zfill(5))
+            new_member          = TropicalCyclone(name='ensemble' + str(nn).zfill(5))
 
             # Use settings from BTD
-            new_member.wind_profile = self.best_track.wind_profile
-            new_member.wind_pressure_relation = self.best_track.wind_pressure_relation
-            new_member.rmw_relation = self.best_track.rmw_relation
-            new_member.background_pressure = self.best_track.background_pressure
-            new_member.phi_spiral = self.best_track.phi_spiral
-            new_member.wind_conversion_factor = self.best_track.wind_conversion_factor
-            new_member.spiderweb_radius = self.best_track.spiderweb_radius
-            new_member.nr_radial_bins = self.best_track.nr_radial_bins
-            new_member.nr_directional_bins = self.best_track.nr_directional_bins
-            new_member.debug = self.best_track.debug
-            new_member.low_wind_speeds_cut_off = self.best_track.low_wind_speeds_cut_off
-            new_member.rho_air = self.best_track.rho_air
-            new_member.asymmetry_option = self.best_track.asymmetry_option
-            new_member.reference_time = self.best_track.reference_time
-            new_member.include_rainfall = self.best_track.include_rainfall
-            new_member.rainfall_relationship = self.best_track.rainfall_relationship
-            new_member.unit_intensity = self.best_track.unit_intensity
-            new_member.unit_radii = self.best_track.unit_radii
-            new_member.EPSG = self.best_track.EPSG
+            new_member.wind_profile               = self.best_track.wind_profile
+            new_member.wind_pressure_relation     = self.best_track.wind_pressure_relation
+            new_member.rmw_relation               = self.best_track.rmw_relation    
+            new_member.background_pressure        = self.best_track.background_pressure
+            new_member.phi_spiral                 = self.best_track.phi_spiral
+            new_member.wind_conversion_factor     = self.best_track.wind_conversion_factor
+            new_member.spiderweb_radius           = self.best_track.spiderweb_radius
+            new_member.nr_radial_bins             = self.best_track.nr_radial_bins
+            new_member.nr_directional_bins        = self.best_track.nr_directional_bins
+            new_member.debug                      = self.best_track.debug
+            new_member.low_wind_speeds_cut_off    = self.best_track.low_wind_speeds_cut_off
+            new_member.rho_air                    = self.best_track.rho_air
+            new_member.asymmetry_option           = self.best_track.asymmetry_option
+            new_member.reference_time             = self.best_track.reference_time
+            new_member.include_rainfall           = self.best_track.include_rainfall
+            new_member.rainfall_relationship      = self.best_track.rainfall_relationship
+            new_member.unit_intensity             = self.best_track.unit_intensity
+            new_member.unit_radii                 = self.best_track.unit_radii
+            new_member.EPSG                       = self.best_track.EPSG
 
-            # Replace track
-            point = Point(best_track_lon2[0], best_track_lat2[0])
-            gdf = gpd.GeoDataFrame(
-                {
-                    "datetime": [ensemble_time[0].strftime(dateformat_module)],
-                    "geometry": [point],
-                    "vmax": [best_track_vmax2[0]],
-                    "pc": [-999],
-                    "RMW": [-999],
-                    "R35_NE": [-999],
-                    "R35_SE": [-999],
-                    "R35_SW": [-999],
-                    "R35_NW": [-999],
-                    "R50_NE": [-999],
-                    "R50_SE": [-999],
-                    "R50_SW": [-999],
-                    "R50_NW": [-999],
-                    "R65_NE": [-999],
-                    "R65_SE": [-999],
-                    "R65_SW": [-999],
-                    "R65_NW": [-999],
-                    "R100_NE": [-999],
-                    "R100_SE": [-999],
-                    "R100_SW": [-999],
-                    "R100_NW": [-999],
-                }
-            )
+            # Replace track 
+            point               = Point(best_track_lon2[0],best_track_lat2[0])
+            R35                 = best_track_rmw2[0] + best_track_ar352[0]
+            gdf                 = gpd.GeoDataFrame({"datetime": [ensemble_time[0].strftime(dateformat_module)],"geometry": [point], "vmax": [best_track_vmax2[0]], "pc": [-999], "RMW": [best_track_rmw2[0]],
+                                        "R35_NE":  [R35],  "R35_SE":  [R35], "R35_SW":  [R35],  "R35_NW": [R35],
+                                        "R50_NE":  [-999],  "R50_SE":  [-999], "R50_SW":  [-999],  "R50_NW": [-999],
+                                        "R65_NE":  [-999],  "R65_SE":  [-999], "R65_SW":  [-999],  "R65_NW": [-999],
+                                        "R100_NE": [-999], "R100_SE": [-999],"R100_SW": [-999], "R100_NW": [-999]})    
             gdf.set_crs(epsg=new_member.EPSG, inplace=True)
-            new_member.track = pd.concat([new_member.track, gdf])
-            new_member.track = new_member.track.reset_index(drop=True)
-            new_member.track = new_member.track.drop([0])  # remove the dummy
-            new_member.track = new_member.track.reset_index(drop=True)
+            new_member.track    = pd.concat([new_member.track,gdf]) 
+            new_member.track    = new_member.track.reset_index(drop=True)
+            new_member.track    = new_member.track.drop([0])           # remove the dummy
+            new_member.track    = new_member.track.reset_index(drop=True)
 
             # Append
             self.members.append(new_member)
@@ -1651,9 +1586,9 @@ class TropicalCycloneEnsemble:
             np.random.seed()
 
         # Random error matrices from normal distribution
-        arnd0 = np.random.randn(ntpred, self.number_of_realizations + 1)
-        crnd0 = np.random.randn(ntpred, self.number_of_realizations + 1)
-        vrnd0 = np.random.randn(ntpred, self.number_of_realizations + 1)
+        arnd0 = np.random.randn(ntpred, self.number_of_realizations)
+        crnd0 = np.random.randn(ntpred, self.number_of_realizations)
+        vrnd0 = np.random.randn(ntpred, self.number_of_realizations)
 
         # Limit to -2 and +2 sigma
         arnd0 = np.maximum(np.minimum(arnd0, 2.0), -2.0)
@@ -1706,26 +1641,20 @@ class TropicalCycloneEnsemble:
             if (ensemble_time[it] > self.tstart_ensemble):
                 
                 # standard deviation scales with tfac
-                arnd = tfac * sigma_ate * arnd0[it, :]
-                crnd = tfac * sigma_cte * crnd0[it, :]
-                vrnd = tfac * sigma_ve * vrnd0[it, :]
-
+                arnd                = tfac*sigma_ate*arnd0[it,:]
+                crnd                = tfac*sigma_cte*crnd0[it,:]
+                vrnd                = tfac*sigma_ve*vrnd0[it,:]
+                
                 # Limit to -2 and +2 sigma
-                arnd = np.maximum(
-                    np.minimum(arnd, 2 * tfac * sigma_ate), -2 * tfac * sigma_ate
-                )
-                crnd = np.maximum(
-                    np.minimum(crnd, 2 * tfac * sigma_cte), -2 * tfac * sigma_cte
-                )
-                vrnd = np.maximum(
-                    np.minimum(vrnd, 2 * tfac * sigma_ve), -2 * tfac * sigma_ve
-                )
+                arnd                = np.maximum(np.minimum(arnd, 2*tfac*sigma_ate), -2*tfac*sigma_ate)
+                crnd                = np.maximum(np.minimum(crnd, 2*tfac*sigma_cte), -2*tfac*sigma_cte)
+                vrnd                = np.maximum(np.minimum(vrnd, 2*tfac*sigma_ve), -2*tfac*sigma_ve)
 
                 # Compute new track errors
-                at1 = self.sc_ate**dtd
-                ate[it, :] = at1 * ate_12 + arnd
-                ct1 = self.sc_cte**dtd
-                cte[it, :] = ct1 * cte_12 + crnd
+                at1                 = self.sc_ate**dtd
+                ate[it,:]           = at1 * ate_12 + arnd
+                ct1                 = self.sc_cte**dtd
+                cte[it,:]           = ct1 * cte_12 + crnd
 
                 # Compute new positions
                 if self.position_method == 0:
@@ -1822,10 +1751,13 @@ class TropicalCycloneEnsemble:
             
             # Else we don't
             else:
+
                 # And simply place the best-track here
-                ensemble_lon[it, :] = best_track_lon2[it]
-                ensemble_lat[it, :] = best_track_lat2[it]
-                ensemble_vmax[it, :] = best_track_vmax2[it]
+                ensemble_lon[it,:]  = best_track_lon2[it]
+                ensemble_lat[it,:]  = best_track_lat2[it] 
+                ensemble_vmax[it,:] = best_track_vmax2[it] 
+                ensemble_rmw[it,:]  = best_track_rmw2[it] 
+                ensemble_ar35[it,:] = best_track_ar352[it]
 
         # Apply spatial smoothing on track data
         factor = round(12 / (dtd * 24))
@@ -1837,24 +1769,21 @@ class TropicalCycloneEnsemble:
                     idwanted[dt] = ensemble_time[dt] > self.tstart_ensemble
 
                 # Apply this
-                ensemble_lon[idwanted, nn] = uniform_filter1d(
-                    ensemble_lon[idwanted, nn], size=factor
-                )
-                ensemble_lat[idwanted, nn] = uniform_filter1d(
-                    ensemble_lat[idwanted, nn], size=factor
-                )
+                ensemble_lon[idwanted,nn]     = uniform_filter1d(ensemble_lon[idwanted,nn], size=factor)
+                ensemble_lat[idwanted,nn]     = uniform_filter1d(ensemble_lat[idwanted,nn], size=factor)
 
         # Replace first one - that is the best-track
         if self.include_best_track == 1:
-            ensemble_lon[:, 0] = best_track_lon2
-            ensemble_lat[:, 0] = best_track_lat2
-            ensemble_vmax[:, 0] = best_track_vmax2
+            ensemble_lon[:,0]   = best_track_lon2
+            ensemble_lat[:,0]   = best_track_lat2
+            ensemble_vmax[:,0]  = best_track_vmax2
+            ensemble_rmw[:,0]   = best_track_rmw2
+            ensemble_ar35[:,0]  = best_track_ar352
 
         # Visual check
         if self.debug == 1:
             plt.plot(ensemble_time2, ensemble_vmax)
             plt.plot(best_track_time2, best_track_vmax, "-k")
-
             plt.plot(ensemble_lon, ensemble_lat)
             plt.plot(best_track_lon2, best_track_lat2, "-k")
 
@@ -1877,19 +1806,6 @@ class TropicalCycloneEnsemble:
                                             "R50_NE":  [-999],  "R50_SE":  [-999], "R50_SW":  [-999],  "R50_NW": [-999],
                                             "R65_NE":  [-999],  "R65_SE":  [-999], "R65_SW":  [-999],  "R65_NW": [-999],
                                             "R100_NE": [-999], "R100_SE": [-999],"R100_SW": [-999], "R100_NW": [-999]})    
-
-
-
-
-
-
-
-
-
-
-
-
-
                 gdf.set_crs(epsg=4326, inplace=True)
                 self.members[nn].track = pd.concat([self.members[nn].track,gdf]) 
 
@@ -1913,8 +1829,7 @@ class TropicalCycloneEnsemble:
         self.error_statistics_ve_mean   = np.mean(abs(ve),1)
 
         # Are we done?
-        if self.debug == 1:
-            print(" done with making ensemble members")
+        if self.debug == 1:  print(" done with making ensemble members")
 
     # Write out shapefile
     def to_shapefile(self, folder_path):

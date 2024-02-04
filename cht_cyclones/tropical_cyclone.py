@@ -14,9 +14,12 @@ Module supports two classes
         add more rainfall methods + allow for scaling of rainfall in ensembles
 """
 
-# Modules needed
+# Standard Library Imports
 import os
+import time
 from datetime import datetime, timedelta
+
+# Third-Party Library Imports
 import fiona
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -25,16 +28,11 @@ import pandas as pd
 from scipy.interpolate import CubicSpline, interp1d
 from scipy.ndimage import uniform_filter1d
 from shapely.geometry import LineString, MultiLineString, Point, mapping
-from pyproj import CRS
 from shapely.ops import nearest_points
-import shapely
-from geojson import Feature, FeatureCollection
-import time
 import shapely
 from netCDF4 import Dataset
 import pyproj
-geodesic                    = pyproj.Geod(ellps='WGS84')
-
+geodesic = pyproj.Geod(ellps='WGS84')
 
 # Settings
 dateformat_module   = "%Y%m%d %H%M%S"
@@ -218,7 +216,7 @@ class TropicalCyclone:
             self.track = self.track.reset_index(drop=True)
             self.track = self.track.drop([0])           # remove the dummy
             self.track = self.track.reset_index(drop=True)
-            if self.debug == 1: print('Succesfully read track - ddb_cyc')
+            if self.debug == 1: print('Successfully read track - ddb_cyc')
 
         elif fmt == 'jmv30':
             print("to do: work on progress")
@@ -232,9 +230,6 @@ class TropicalCyclone:
         # note that value -999 is a NaN for this module
         # we assume datetimes but convert them internally
         # R35 is a matrix with time and NE, SE, SW, NW Symmetric_Circle
-        
-        # First, check if we have either a wind or a pressure
-        a=1
 
         # Loop over the list and place them
         for index, vmax in enumerate(winds):
@@ -866,8 +861,15 @@ class TropicalCyclone:
                 c       = uabs/knots_to_ms          # convert back to kts
                 a       = 1.5*c**0.63               # Schwerdt (1979)
                 a       = a*knots_to_ms             # Convert to m/s
-                u_prop  = a*ux/uabs               
-                v_prop  = a*uy/uabs
+
+                # Check if 'uabs' is zero or very close to zero to prevent division by zero 
+                if abs(uabs) < 1e-6:
+                    u_prop = 0.00
+                    v_prop = 0.00
+                else:
+                    u_prop  = a*ux/uabs               
+                    v_prop  = a*uy/uabs
+                    
             elif self.asymmetry_option == 'mvo':
                 uabs    = np.sqrt(ux**2 + uy**2)    # forward speed using x and y components
                 a       = 0.6
@@ -1038,7 +1040,7 @@ class TropicalCyclone:
             coords  = self.track.geometry[it]            
             lat     = coords.y
 
-            # Get derivate values
+            # Get derivative values
             ux      = self.track.vtx[it]                                                            # forward speed - x 
             uy      = self.track.vty[it]                                                            # forward speed - y  
             vt      = np.sqrt(self.track.vtx[it]**2  + self.track.vty[it]**2)                       # forward speed - magnitude
@@ -1051,7 +1053,7 @@ class TropicalCyclone:
             wind_to_direction_cart  = np.zeros((len(phi), len(r)))
             pressure_drop           = np.zeros((len(phi), len(r)))
             rainfall_rate           = np.zeros((len(phi), len(r)))
-            spiderweb_dict          = {'wind_speed': wind_speed, 'wind_from_direction': wind_speed, 'pressure_drop': wind_speed, 'pressure_drop': wind_speed, 'rainfall': rainfall_rate}
+            spiderweb_dict          = {'wind_speed': wind_speed, 'wind_from_direction': wind_to_direction_cart, 'pressure_drop': pressure_drop, 'pressure_drop': wind_speed, 'rainfall': rainfall_rate}
 
             # Holland et al. 2010
             if self.wind_profile == "holland2010":
@@ -1120,8 +1122,15 @@ class TropicalCyclone:
                 c       = uabs/knots_to_ms          # convert back to kts
                 a       = 1.5*c**0.63               # Schwerdt (1979)
                 a       = a*knots_to_ms             # Convert to m/s
-                u_prop  = a*ux/uabs               
-                v_prop  = a*uy/uabs
+
+                # Check if 'uabs' is zero or very close to zero to prevent division by zero 
+                if abs(uabs) < 1e-6:
+                    u_prop = 0.00
+                    v_prop = 0.00
+                else:
+                    u_prop  = a*ux/uabs               
+                    v_prop  = a*uy/uabs
+
             elif self.asymmetry_option == 'mvo':
                 uabs    = np.sqrt(ux**2 + uy**2)    # forward speed using x and y components
                 a       = 0.6
@@ -1281,11 +1290,6 @@ class TropicalCyclone:
         # Make netcdf
         root_grp                = Dataset(filename, 'w', format='NETCDF4')
         root_grp.description    = 'Tropical cyclone spiderweb by Coastal Hazards Toolkit'
-
-        # Define dimensions
-        time_dim                = root_grp.createDimension('time', ntime)
-        range_dim               = root_grp.createDimension('range', nrows)
-        azimuth_dim             = root_grp.createDimension('azimuth', ncols)
 
         # Define variables
         time_var                = root_grp.createVariable('time', 'f8', ('time',))
@@ -1481,18 +1485,19 @@ class TropicalCycloneEnsemble:
         best_track_lon2                 = best_track_lon2(ensemble_time2)
         best_track_lat2                 = CubicSpline(best_track_time2,best_track_lat)
         best_track_lat2                 = best_track_lat2(ensemble_time2)
-        best_track_vmax2                = CubicSpline(best_track_time2,best_track_vmax)
+        best_track_vmax2                = interp1d(best_track_time2,best_track_vmax)
         best_track_vmax2                = best_track_vmax2(ensemble_time2)
-        best_track_rmw2                 = CubicSpline(best_track_time2,best_track_rmw)
+        best_track_rmw2                 = interp1d(best_track_time2,best_track_rmw)
         best_track_rmw2                 = best_track_rmw2(ensemble_time2)
-        best_track_ar352                = CubicSpline(best_track_time2,best_track_ar35)
+        best_track_ar352                = interp1d(best_track_time2,best_track_ar35)
         best_track_ar352                = best_track_ar352(ensemble_time2)
-        best_track_ar352                = best_track_ar352 - best_track_rmw2
+        best_track_ar352                = best_track_ar352 - best_track_rmw2        # we are removing RMW here
+        best_track_ar352[best_track_ar352<0] = -999
 
         # Compute heading again
-        [forward_speed, heading] = compute_forward_speed_heading(ensemble_time2, best_track_lon2, best_track_lat2)
+        [forward_speed, heading]        = compute_forward_speed_heading(ensemble_time2, best_track_lon2, best_track_lat2)
 
-        # Estimate likelyhood of this rmw value
+        # Estimate likelihood of this rmw value
         quantiles_RMW                   = []
         quantiles_AR35                  = []
         for index, value in enumerate(best_track_rmw2):
@@ -1515,11 +1520,17 @@ class TropicalCycloneEnsemble:
                 quantiles_RMW.append(nearest_index/len(rmax['numbers']))
 
                 # For AR35
-                dr35['numbers']     = np.sort(np.squeeze(dr35['numbers']))/nm_to_km
-                absolute_difference = np.abs(dr35['numbers'] - best_track_ar352[index])
-                nearest_index       = np.argmin(absolute_difference)
-                nearest_value       = rmax['numbers'][nearest_index]
-                quantiles_AR35.append(nearest_index/len(rmax['numbers']))
+                if self.best_track.unit_intensity == 'knots':
+                    if best_track_vmax2[index]*knots_to_ms > 20:
+                        dr35['numbers']     = np.sort(np.squeeze(dr35['numbers']))/nm_to_km
+                        absolute_difference = np.abs(dr35['numbers'] - best_track_ar352[index])
+                        nearest_index       = np.argmin(absolute_difference)
+                        nearest_value       = rmax['numbers'][nearest_index]
+                        quantiles_AR35.append(nearest_index/len(rmax['numbers']))
+                    else:
+                        # Simply fill the quantiles to ensure correct time series
+                        quantiles_AR35.append(0.5)
+
 
             else:
                 print('error!')
@@ -1676,7 +1687,7 @@ class TropicalCycloneEnsemble:
                     lat1 = best_track_lat2[it]
                     # Compute track heading based on latitude / longitude of two points
                     fwd_azimuth, back_azimuth, distance = geodesic.inv(lon0, lat0, lon1, lat1)
-                    for ie in range(self.number_of_realizations + 1):
+                    for ie in range(self.number_of_realizations):
                         lon00, lat00, backaz = geodesic.fwd(lon0, lat0, fwd_azimuth, distance + ate[it, ie], radians=False)
                         lon11, lat11, backaz = geodesic.fwd(lon00, lat00, fwd_azimuth + 90.0, cte[it, ie], radians=False)
                         ensemble_lon[it, ie]  = lon11
@@ -1700,13 +1711,14 @@ class TropicalCycloneEnsemble:
                     ensemble_rmw[it,index]  = np.sort(np.squeeze(rmax['numbers']))[int(quantiles_RMW[it]*len(rmax['numbers']))]
                     ensemble_rmw[it,index]  = ensemble_rmw[it,index]/nm_to_km       # km to nautical mile
 
-                    # Same for AR35
+                    # Same for AR35 => in principle -999 unless ....
+                    ensemble_ar35[it,index] = -999
                     if self.best_track.unit_intensity == 'knots':
                         if ensemble_vmax[it,index]*knots_to_ms > 20:
-                            ensemble_ar35[it,index] = np.sort(np.squeeze(dr35['numbers']))[int(quantiles_AR35[it]*len(rmax['numbers']))]
-                            ensemble_ar35[it,index] = ensemble_ar35[it,index]/nm_to_km      # km to nautical mile
-                        else:
-                            ensemble_ar35[it,index] = -999
+                            if best_track_vmax2[it]*knots_to_ms > 20:
+                                # only if both the best-track and ensemble member are larger than 20 m/s
+                                ensemble_ar35[it,index] = np.sort(np.squeeze(dr35['numbers']))[int(quantiles_AR35[it]*len(rmax['numbers']))]
+                                ensemble_ar35[it,index] = ensemble_ar35[it,index]/nm_to_km      # km to nautical mile
 
                 # Check if TC is on land and include maxima
                 if self.check_land == True:
@@ -1740,9 +1752,10 @@ class TropicalCycloneEnsemble:
                 else:
                     ensemble_low              = ensemble_low_winds[0,:] > 0
 
-                # And there is no re-energising of TCs
-                ensemble_vmax[it,ensemble_low]  = 0.0
-                ensemble_vmax[it,:]             = np.maximum(ensemble_vmax[it,:], 0.0)      # 0 knots
+                # And there is no re-energising of TCs 
+                # Note we are using 1 knots to still allow an estimation of the pressure
+                ensemble_vmax[it,ensemble_low]  = 1.0
+                ensemble_vmax[it,:]             = np.maximum(ensemble_vmax[it,:], 1.0)      # 1 knots
 
                 # Save errors from last iteration
                 ate_12              = ate[it,:]
@@ -1796,10 +1809,13 @@ class TropicalCycloneEnsemble:
                 point       = Point(ensemble_lon[it,nn],ensemble_lat[it,nn])
                 if self.best_track.unit_intensity == 'knots':
                     if (ensemble_vmax[it,index]*knots_to_ms) > 20:
-                        AR35        = ensemble_rmw[it,nn] + ensemble_ar35[it,nn]
+                        if ensemble_ar35[it,nn] == -999:
+                            AR35        = -999
+                        else:
+                            AR35        = ensemble_rmw[it,nn] + ensemble_ar35[it,nn]
                     else:
                         AR35        = -999
-                
+
                 # Geodatabase
                 gdf         = gpd.GeoDataFrame({"datetime": [ensemble_time[it].strftime(dateformat_module)],"geometry": [point], "vmax": [ensemble_vmax[it,nn]], "pc": [-999], "RMW": [ensemble_rmw[it,nn]],
                                             "R35_NE":  [AR35],  "R35_SE":  [AR35], "R35_SW":  [AR35],  "R35_NW": [AR35],
@@ -1861,15 +1877,18 @@ class TropicalCycloneEnsemble:
                 counter += 1
 
     # Write them out to a spiderweb
-    def to_spiderweb(self, folder_path):
+    def to_spiderweb(self, folder_path, format_type='ascii'):
         # Make path (if needed)
         os.makedirs(folder_path, exist_ok=True)
 
         # Loop over ensemble members and write them out
         for member in self.members:
             filename = os.path.join(folder_path, member.name)  # combine paths
-            filename = filename + ".spw"  # add spiderweb extension
-            member.to_spiderweb(filename)
+            if format_type == 'ascii':
+                filename = filename + ".spw" 
+            if format_type == 'netcdf': 
+                filename = filename + ".nc" 
+            member.to_spiderweb(filename, format_type=format_type)
 
     # Make output with cyc
     def to_cyc(self, folder_path):
@@ -1984,8 +2003,7 @@ def wind_radii_nederhoff(vmax, lat, region, probability):
     """
     # radius of maximum winds (rmw or rmax)
     # 1. coefficients for A
-    coefficients_a = np.array(
-        [
+    coefficients_a = np.array([
             0.306982540000000,
             0.338409237000000,
             0.342791450000000,
@@ -1993,116 +2011,85 @@ def wind_radii_nederhoff(vmax, lat, region, probability):
             0.358572938000000,
             0.310729085000000,
             0.395431764000000,
-            0.370190027000000,
-        ]
-    )
+            0.370190027000000])
 
     # 2. coefficients for B
-    coefficients_b = np.array(
-        [
-            [
-                132.411906200000,
-                14.5640379700000,
-                -0.00259703300000000,
-                20.3808036500000,
-            ],
+    coefficients_b = np.array([[132.411906200000,14.5640379700000,-0.00259703300000000,20.3808036500000],
             [229.245844100000, 9.53865069100000, 0.00398810500000000, 28.4457367200000],
             [85.2576655100000, 30.6920872600000, 0.00243248000000000, 5.78116540600000],
             [127.833300700000, 11.8474757400000, 0.0159363120000000, 25.4682000500000],
             [153.733294700000, 11.4788885400000, 0.00747119300000000, 28.9489788700000],
             [261.528874200000, 7.01151785400000, 0.0261912560000000, 29.2022787100000],
             [19.0899242800000, 24.0885573100000, 0.106240340000000, 23.1802014600000],
-            [44.8241743300000, 23.3717128800000, 0.0304690570000000, 22.4282036100000],
-        ]
-    )
+            [44.8241743300000, 23.3717128800000, 0.0304690570000000, 22.4282036100000]])
 
     # 3. get the best guess for a and b given wind speed and latitude
     a_value = coefficients_a[region]
-    b_value = (
-        coefficients_b[region, 0]
-        * np.exp(-vmax / coefficients_b[region, 1])
-        * (1 + coefficients_b[region, 2] * abs(lat))
-        + coefficients_b[region, 3]
-    )
+    b_value = coefficients_b[region, 0] * np.exp(-vmax / coefficients_b[region, 1]) * (1 + coefficients_b[region, 2] * abs(lat)) + coefficients_b[region, 3]
 
-    rmax = {}
-    rmax["mode"] = {}
-    rmax["mean"] = {}
-    rmax["median"] = {}
-    rmax["lowest"] = {}
+    rmax            = {}
+    rmax["mode"]    = {}
+    rmax["mean"]    = {}
+    rmax["median"]  = {}
+    rmax["lowest"]  = {}
     rmax["highest"] = {}
     rmax["numbers"] = {}
 
     # 4. compute 1000 delta r35 values
     rmax["mode"] = np.exp(np.log(b_value) - a_value**2)
     if probability == 1:
-        numbers = np.sort(
-            np.exp(np.random.normal(size=(1000, 1)) * a_value + np.log(b_value))
-        )
-        rmax["mean"] = np.mean(numbers)
-        rmax["median"] = np.median(numbers)
-        rmax["lowest"] = numbers[int(0.05 * len(numbers))][0]
+        numbers         = np.sort(np.exp(np.random.normal(size=(1000, 1)) * a_value + np.log(b_value)))
+        rmax["mean"]    = np.mean(numbers)
+        rmax["median"]  = np.median(numbers)
+        rmax["lowest"]  = numbers[int(0.05 * len(numbers))][0]
         rmax["highest"] = numbers[int(0.95 * len(numbers))][0]
         rmax["numbers"] = np.sort(numbers)
 
     # delta radius of 35 knots (r35)
-    dr35 = {}
-    dr35["mode"] = {}
-    dr35["mean"] = {}
-    dr35["median"] = {}
-    dr35["lowest"] = {}
-    dr35["highest"] = {}
-    dr35["numbers"] = {}
+    dr35                = {}
+    dr35["mode"]        = {}
+    dr35["mean"]        = {}
+    dr35["median"]      = {}
+    dr35["lowest"]      = {}
+    dr35["highest"]     = {}
+    dr35["numbers"]     = {}
 
     # Only if wind speed is more than 20 m/s
     if vmax > 20:
+
         # 1. coefficients for a
-        coefficients_a = np.array(
-            [
-                [0.121563729, -0.052184289, 0.032953813],
-                [0.131188105, -0.044389473, 0.002253258],
-                [0.122286754, -0.045355772, 0.013286154],
-                [0.120490659, -0.035029431, -0.005249445],
-                [0.156059522, -0.041685377, 0.004952978],
-                [-0.251333213, -0.009072243, -0.00506365],
-                [0.131903526, -0.042096876, 0.012443195],
-                [0.190044585, -0.044602083, 0.006117124],
-            ]
-        )
+        coefficients_a = np.array([ [0.121563729, -0.052184289, 0.032953813],
+                                    [0.131188105, -0.044389473, 0.002253258],
+                                    [0.122286754, -0.045355772, 0.013286154],
+                                    [0.120490659, -0.035029431, -0.005249445],
+                                    [0.156059522, -0.041685377, 0.004952978],
+                                    [-0.251333213, -0.009072243, -0.00506365],
+                                    [0.131903526, -0.042096876, 0.012443195],
+                                    [0.190044585, -0.044602083, 0.006117124]])
 
         # 2. coefficients for b
-        coefficients_b = np.array(
-            [
-                [30.92867473, 0.530681714, -0.012001645],
-                [30.21210133, 0.414897465, 0.021689596],
-                [26.58686237, 0.425916004, 0.028547278],
-                [23.88007085, 0.43109144, 0.038119083],
-                [33.26829485, 0.42859578, 0.017209431],
-                [18.11013691, 0.486399912, 0.02955688],
-                [16.9973011, 0.453713419, 0.054643743],
-                [29.61141102, 0.4132484, 0.024418947],
-            ]
-        )
+        coefficients_b = np.array([ [30.92867473, 0.530681714, -0.012001645],
+                                    [30.21210133, 0.414897465, 0.021689596],
+                                    [26.58686237, 0.425916004, 0.028547278],
+                                    [23.88007085, 0.43109144, 0.038119083],
+                                    [33.26829485, 0.42859578, 0.017209431],
+                                    [18.11013691, 0.486399912, 0.02955688],
+                                    [16.9973011, 0.453713419, 0.054643743],
+                                    [29.61141102, 0.4132484, 0.024418947]])
 
         # 3. get the best guess for a and b given wind speed and latitude
-        a_value = coefficients_a[region, 0] + np.exp(
-            vmax * coefficients_a[region, 1]
-        ) * (1 + coefficients_a[region, 2] * abs(lat))
-        b_value = coefficients_b[region, 0] + (vmax - 18) ** coefficients_b[
-            region, 1
-        ] * (1 + coefficients_b[region, 2] * abs(lat))
+        a_value = coefficients_a[region, 0] + np.exp(vmax * coefficients_a[region, 1]) * (1 + coefficients_a[region, 2] * abs(lat))
+        b_value = coefficients_b[region, 0] * (vmax - 18) ** coefficients_b[region, 1] * (1 + coefficients_b[region, 2] * abs(lat))
 
         # 4. compute 1000 delta r35 values
         dr35["mode"] = np.exp(np.log(b_value) - a_value**2)
         if probability == 1:
-            numbers = np.sort(
-                np.exp(np.random.normal(size=(1000, 1)) * a_value + np.log(b_value))
-            )
-            dr35["mean"] = np.mean(numbers)
-            dr35["median"] = np.median(numbers)
-            dr35["lowest"] = numbers[int(0.05 * len(numbers))][0]
-            dr35["highest"] = numbers[int(0.95 * len(numbers))][0]
-            dr35["numbers"] = np.sort(numbers)
+            numbers             = np.sort(np.exp(np.random.normal(size=(1000, 1)) * a_value + np.log(b_value)))
+            dr35["mean"]        = np.mean(numbers)
+            dr35["median"]      = np.median(numbers)
+            dr35["lowest"]      = numbers[int(0.05 * len(numbers))][0]
+            dr35["highest"]     = numbers[int(0.95 * len(numbers))][0]
+            dr35["numbers"]     = np.sort(numbers)
 
     # output
     return [rmax, dr35]
@@ -2552,24 +2539,17 @@ def compute_forward_speed_heading(t, x, y):
     # Return
     return [forward_speed, heading]
 
+
+# To geojson
 def to_geojson(cycfile, filename):
-    from geojson import Point, LineString, Feature, FeatureCollection
+    from geojson import Point, LineString
     import cht.misc.misc_tools
     from cht.tropical_cyclone.tropical_cyclone import TropicalCyclone
 
     track= TropicalCyclone()
     track.from_ddb_cyc(cycfile)
 
-    for ip in range(np.size(track.track.geometry.x)):
-        point = Point((track.track.geometry.x[ip], track.track.geometry.y[ip]))       
-        categories = {64.0: "TS", 83.0: "1", 96.0: "2", 113.0: "3", 137.0: "4"}
-
-        vmax = track.track.vmax[ip]
-        for threshold, cat in categories.items():
-            if vmax < threshold:
-                break
-        else:
-            cat = "5"   
+    categories = {64.0: "TS", 83.0: "1", 96.0: "2", 113.0: "3", 137.0: "4"}
    
     features = []            
     points=[]
@@ -2577,6 +2557,12 @@ def to_geojson(cycfile, filename):
     for ip in range(np.size(track.track.geometry.x)):
         point = Point((track.track.geometry.x[ip], track.track.geometry.y[ip]))       
         tmptime = datetime.strptime(track.track.datetime[ip], "%Y%m%d %H%M%S")
+        vmax = track.track.vmax[ip]
+        for threshold, cat in categories.items():
+            if vmax < threshold:
+                break
+        else:
+            cat = "5"  
         features.append(Feature(geometry=point,
                                 properties={"time": tmptime.strftime("%Y/%m/%d %H:%M") + " UTC",
                                             "lon": track.track.geometry.x[ip],
@@ -2639,5 +2625,3 @@ def analyze_points_with_shapefile(shapefile_polygon, shapefile_polyline, latitud
         results.append(result)
 
     return results
-
-

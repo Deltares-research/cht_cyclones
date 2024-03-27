@@ -106,8 +106,8 @@ class TropicalCyclone:
 
 
     # Reading
-    def from_jmv30(self, filename):
-        self.read_track(filename, "jmv30")
+    def from_trk(self, filename):
+        self.read_track(filename, "trk")
 
     def from_ddb_cyc(self, filename):
         self.read_track(filename, "ddb_cyc")
@@ -218,8 +218,188 @@ class TropicalCyclone:
             self.track = self.track.reset_index(drop=True)
             if self.debug == 1: print('Successfully read track - ddb_cyc')
 
-        elif fmt == 'jmv30':
-            print("to do: work on progress")
+        elif fmt == 'trk':
+
+            # Initialize variables
+            lasttime    = np.datetime64(datetime.strptime("2000010118", "%Y%m%d%H"))
+            newtime2    = lasttime.astype('O')
+            tc_time_string  = newtime2.strftime('%Y%m%d %H%M%S')
+            it          = 0
+            point       = Point(0,0)
+            gdf         = gpd.GeoDataFrame({"datetime": [tc_time_string],"geometry": [point], "vmax": [-999], "pc": [-999], "RMW": [-999],
+                                        "R35_NE":  [-999],  "R35_SE":  [-999], "R35_SW":  [-999],  "R35_NW": [-999],
+                                        "R50_NE":  [-999],  "R50_SE":  [-999], "R50_SW":  [-999],  "R50_NW": [-999],
+                                        "R65_NE":  [-999],  "R65_SE":  [-999], "R65_SW":  [-999],  "R65_NW": [-999],
+                                        "R100_NE": [-999], "R100_SE": [-999],"R100_SW": [-999], "R100_NW": [-999]})    
+            gdf.set_crs(epsg=self.EPSG, inplace=True)
+            self.track = gdf # Always start clean
+
+            # Open the file
+            with open(filename, 'r') as fid:
+                # Read line by line
+                for s0 in fid:
+                    s0 = s0.strip()
+                    if not s0:
+                        continue
+                    
+                    # Start
+                    s                   = s0.split(',')
+                    tc                  = {'name': 'not_known'}
+                    tc['basin']         = s[0]
+                    tc['storm_number']  = int(s[1])
+
+                    # Read time
+                    tstr        = str(s[2])
+                    tstr        = tstr.replace(" ", "")
+                    time        = datetime.strptime(tstr, "%Y%m%d%H")
+                    newtime     = np.datetime64(time)
+
+                    # Add forecasted time
+                    hrs         = float(s[5])
+                    newtime     = newtime + np.timedelta64(int(hrs*3600), 's')
+                    if newtime > lasttime + np.timedelta64(1, 's'):
+
+                        # Update all variables in gdf (when it is not the first one)
+                        if it > 0:
+                            gdf['geometry'] = [Point(x,y)]  # Assign the new geometry
+                            gdf.vmax        = vmax
+                            gdf.pc          = pc
+                            gdf.RMW         = rmax
+                            if R35_NE > 0: gdf.R35_NE      = R35_NE
+                            if R35_SE > 0: gdf.R35_SE      = R35_SE
+                            if R35_SW > 0: gdf.R35_SW      = R35_SW
+                            if R35_NW > 0: gdf.R35_NW      = R35_NW
+
+                            if R50_NE > 0: gdf.R50_NE      = R50_NE
+                            if R50_SE > 0: gdf.R50_SE      = R50_SE
+                            if R50_SW > 0: gdf.R50_SW      = R50_SW
+                            if R50_NW > 0: gdf.R50_NW      = R50_NW
+
+                            if R65_NE > 0: gdf.R65_NE      = R65_NE
+                            if R65_SE > 0: gdf.R65_SE      = R65_SE
+                            if R65_SW > 0: gdf.R65_SW      = R65_SW
+                            if R65_NW > 0: gdf.R65_NW      = R65_NW
+
+                            if R100_NE > 0: gdf.R100_NE    = R100_NE
+                            if R100_SE > 0: gdf.R100_SE    = R100_SE
+                            if R100_SW > 0: gdf.R100_SW    = R100_SW
+                            if R100_NW > 0: gdf.R100_NW    = R100_NW
+
+                        # New time point found
+                        it += 1
+                        lasttime = newtime
+
+                        # Append self
+                        self.track = pd.concat([self.track,gdf]) 
+
+                        # Make TC string
+                        newtime2        = newtime.astype('O')
+                        tc_time_string  = newtime2.strftime('%Y%m%d %H%M%S')
+
+                        # Start fresh
+                        gdf         = gpd.GeoDataFrame({"datetime": [tc_time_string],"geometry": [point], "vmax": [-999], "pc": [-999], "RMW": [-999],
+                                                    "R35_NE":  [-999],  "R35_SE":  [-999], "R35_SW":  [-999],  "R35_NW": [-999],
+                                                    "R50_NE":  [-999],  "R50_SE":  [-999], "R50_SW":  [-999],  "R50_NW": [-999],
+                                                    "R65_NE":  [-999],  "R65_SE":  [-999], "R65_SW":  [-999],  "R65_NW": [-999],
+                                                    "R100_NE": [-999], "R100_SE": [-999],"R100_SW": [-999], "R100_NW": [-999]})    
+                        gdf.set_crs(epsg=self.EPSG, inplace=True)
+
+                        # Reset all values
+                        x       = 0
+                        y       = 0
+                        vmax    = -999
+                        pc      = -999
+                        RMW     = -999
+                        R35_NE  = -999
+                        R35_SE  = -999
+                        R35_SW  = -999
+                        R35_NW  = -999
+
+                        R50_NE  = -999
+                        R50_SE  = -999
+                        R50_SW  = -999
+                        R50_NW  = -999
+
+                        R65_NE  = -999
+                        R65_SE  = -999
+                        R65_SW  = -999
+                        R65_NW  = -999
+
+                        R100_NE = -999
+                        R100_SE = -999
+                        R100_SW = -999
+                        R100_NW = -999
+
+                    # Latitude
+                    if s[6][-1] == 'N':
+                        y       = 0.1 * float(s[6][:-1])
+                    else:
+                        y       = -0.1 * float(s[6][:-1])
+                    # Longitude
+                    if s[7][-1] == 'E':
+                        x       = 0.1 * float(s[7][:-1])
+                    else:
+                        x       = -0.1 * float(s[7][:-1])
+
+                    # vmax
+                    if float(s[8]) > 0:
+                        vmax    = float(s[8])
+                    
+                    # Pressure and raddi
+                    if len(s) > 9:
+
+                        # Pressure
+                        if float(s[9]) > 0:
+                            pc  = float(s[9])
+
+                        # Radii
+                        r = float(s[11])
+                        if r in [34, 35]:
+                            R35_NE      = float(s[13])
+                            R35_SE      = float(s[14])
+                            R35_SW      = float(s[15])
+                            R35_NW      = float(s[16])
+                        elif r == 50:
+                            R50_NE      = float(s[13])
+                            R50_SE      = float(s[14])
+                            R50_SW      = float(s[15])
+                            R50_NW      = float(s[16])
+                        elif r in [64, 65]:
+                            R65_NE      = float(s[13])
+                            R65_SE      = float(s[14])
+                            R65_SW      = float(s[15])
+                            R65_NW      = float(s[16])
+                        elif r == 100:
+                            R100_NE     = float(s[13])
+                            R100_SE     = float(s[14])
+                            R100_SW     = float(s[15])
+                            R100_NW     = float(s[16])
+                        
+                        # Other things
+                        if len(s) > 17:
+                            if s[17]:
+                                pressure_last_closed_isobar = float(s[17])
+                            if s[18]:
+                                radius_last_closed_isobar   = float(s[18])
+                            if s[19]:
+                                try:
+                                    if float(s[19]) > 0:
+                                        rmax = float(s[19])
+                                except ValueError:
+                                    print("Error: Unable to convert to float for RMW")
+                                    rmax = -999
+                            if len(s) >= 28:
+                                if s[27]:
+                                    name = s[27]
+
+            # Done with this => rest so track looks good
+            self.track = self.track.reset_index(drop=True)
+            self.track = self.track.drop([0])           # remove the dummy
+            self.track = self.track.reset_index(drop=True) 
+            self.track = self.track.drop([0])           # remove the dummy
+            self.track = self.track.reset_index(drop=True) 
+            if self.debug == 1: print('Successfully read track - trk')
+
         else: 
             raise Exception('This file format is not supported as read track!')
 
@@ -1291,6 +1471,11 @@ class TropicalCyclone:
         root_grp                = Dataset(filename, 'w', format='NETCDF4')
         root_grp.description    = 'Tropical cyclone spiderweb by Coastal Hazards Toolkit'
 
+        # Define dimensions
+        root_grp.createDimension('time', ntime)
+        root_grp.createDimension('range', nrows)
+        root_grp.createDimension('azimuth', ncols)
+
         # Define variables
         time_var                = root_grp.createVariable('time', 'f8', ('time',))
         range_var               = root_grp.createVariable('range', 'f8', ('range',))
@@ -1429,6 +1614,9 @@ class TropicalCycloneEnsemble:
         # Methods
         self.position_method            = 0 
 
+        # We assume that we are in the imperial system, so convert if needed
+        TropicalCyclone.convert_units_metric_imperial()
+
         # Define best-track
         self.best_track                 = TropicalCyclone
         self.tstart                     = datetime.strptime(self.best_track.track.datetime[0], dateformat_module)   # starting time of the track
@@ -1440,6 +1628,7 @@ class TropicalCycloneEnsemble:
 
     # Compute ensemble member
     def compute_ensemble(self, number_of_realizations=None):
+
         # First set time variables based on best track
         if self.debug == 1: print("Started with making ensembles")
         self.number_of_realizations = number_of_realizations
@@ -1679,6 +1868,7 @@ class TropicalCycloneEnsemble:
                     dy                  = dy / 110540
                     ensemble_lon[it,:]  = best_track_lon2[it] + dx
                     ensemble_lat[it,:]  = best_track_lat2[it] + dy
+
                 elif self.position_method == 1:    
                     # Compute new position based on best track position and ate/cte
                     lon0 = best_track_lon2[items0]

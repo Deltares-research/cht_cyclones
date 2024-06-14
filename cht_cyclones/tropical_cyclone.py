@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 # Third-Party Library Imports
 import fiona
 import geopandas as gpd
+from geojson import Feature, FeatureCollection
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -2466,6 +2467,36 @@ class TropicalCycloneEnsemble:
                     {"geometry": mapping(linestring), "properties": {"id": counter}}
                 )
                 counter += 1
+
+    # Write out geojson
+    def to_geojson(self, filename=None, text="var track_ensemble ="):
+        import cht.misc.misc_tools
+
+        # Make path (if needed)
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+        # Get the tracks in line format
+        lines = []
+        ids = []
+        for nn, member in enumerate(self.members):
+            coordinates = []
+            for it in range(len(member.track)):
+                coordinates.append(
+                    (member.track.geometry[it].x, member.track.geometry[it].y)
+                )
+            line = LineString(coordinates)
+            lines.append(line)
+            ids.append(member.name)
+        multilinestring = MultiLineString(lines)
+
+        # Write multilinestring to geojson
+        features = []
+        features.append(Feature(geometry=multilinestring))
+        feature_collection = FeatureCollection(features)
+
+        cht.misc.misc_tools.write_json_js(filename, feature_collection, text)
+
+        return feature_collection
 
     # Write them out to a spiderweb
     def to_spiderweb(self, folder_path, format_type="ascii"):

@@ -22,12 +22,12 @@ from datetime import datetime, timedelta
 # Third-Party Library Imports
 import fiona
 import geopandas as gpd
-from geojson import Feature, FeatureCollection
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyproj
 import shapely
+from geojson import Feature, FeatureCollection
 from netCDF4 import Dataset
 from scipy.interpolate import CubicSpline, interp1d
 from scipy.ndimage import uniform_filter1d
@@ -2376,7 +2376,7 @@ class TropicalCycloneEnsemble:
                 # Make GeoDataFrame of this timestamp and track
                 point = Point(ensemble_lon[it, nn], ensemble_lat[it, nn])
                 if self.best_track.unit_intensity == "knots":
-                    if (ensemble_vmax[it, index] * knots_to_ms) > 20:
+                    if (ensemble_vmax[it, nn] * knots_to_ms) > 20:
                         if ensemble_ar35[it, nn] == -999:
                             AR35 = -999
                         else:
@@ -2821,7 +2821,7 @@ def fit_wind_field_holland2010(
     size_factor = 1
     phi = np.arange(90, -270 - 10, -10)  # radial angles (cartesian, degrees)
     rmax = rmax * 1000  # convert from km to m
-    r = np.arange(4000, 1000000 + 4000, 4000)
+    r = np.arange(5000, 500000 + 5000, 5000)
 
     # first estimates
     xn = 0.5

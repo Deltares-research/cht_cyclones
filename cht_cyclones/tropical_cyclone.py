@@ -2782,6 +2782,7 @@ def wpr_holland2008(
 
     # vmax to be determined
     if not vmax:
+        pc = min(pc, pn - 1.0)
         dp = pn - pc
         x = 0.6 * (1 - dp / 215)
         bs = (

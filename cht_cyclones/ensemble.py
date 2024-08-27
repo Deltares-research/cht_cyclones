@@ -88,14 +88,6 @@ class TropicalCycloneEnsemble:
     def generate(self):
         """Compute the ensemble members."""
 
-        self.copy_members() # Create the ensemble members 
-
-        self.generate_tracks() # Generates the tracks and vmax values for the individual ensemble members
-
-        self.compute_wind_fields() # Computes the wind fields by scaling
-
-    def copy_members(self):
-
         # Create the ensemble members 
         for i in range(self.number_of_realizations):
             member = TropicalCycloneEnsembleMember()
@@ -105,13 +97,17 @@ class TropicalCycloneEnsemble:
             # But remove the spiderweb wind field to save memory
             member.tropical_cyclone.spiderweb = TropicalCycloneSpiderweb()
             self.members.append(member)
-        
+
+        self.generate_tracks() # Generates the tracks and vmax values for the individual ensemble members
+
+        self.compute_wind_fields() # Computes the wind fields by scaling
+
     def generate_tracks(self):
 
         # Create new track with constant time intervals
         # Resample the track to hourly values
         equidistant_best_track = copy.copy(self.tropical_cyclone.track_metric)
-        equidistant_best_track.resample(self.dt)
+        equidistant_best_track.gdf = equidistant_best_track.resample(self.dt)
 
         for i in range(0, self.number_of_realizations):
 

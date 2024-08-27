@@ -6,6 +6,7 @@ from geojson import Feature, FeatureCollection
 from geopandas import GeoDataFrame
 from scipy.interpolate import CubicSpline, interp1d
 import os
+from pyproj import CRS, Geod
 
 from .wind_profiles import wpr_holland2008, wind_radii_nederhoff
 from .utils import gdf_to_geojson_js
@@ -15,19 +16,65 @@ nm_to_km = float(1.852)
 nm_to_m = float(1.852) * 1000
 dateformat_module = "%Y%m%d %H%M%S"
 
+geodesic = Geod(ellps="WGS84")
+
+
 class TropicalCycloneTrack:
     def __init__(self):
         self.gdf = GeoDataFrame()
-        self.epsg = 4326
+        self.crs = CRS.from_epsg(4326)
         self.unit_intensity = "knots"
         self.unit_radii = "nm"
 
-    def read(self, filename, fmt):
-        if fmt == "ddb_cyc":
-            config = self.read_ddb_cyc(filename)
+    def read(self, filename):
+        """Read a tropical cyclone track from a file."""
+
+        # Try to read cyc file new format
+        try:
+            gdf = read_cyc(filename)
+            self.gdf = gdf
+            return None
+        except:
+            pass
+
+        # Try to read trk file (COAMPS-TC)
+        try:
+            gdf = read_trk(filename)
+            self.gdf = gdf
+            return None
+        except:
+            pass
+
+        # Try to read ddb cyc file
+        try:
+            gdf, config, name = read_ddb_cyc(filename)
+            self.gdf = gdf
+            # Do not do anything with name
             return config
-        elif fmt == "trk":
-            self.read_trk(filename)
+        except:
+            pass
+
+        raise Exception("Error: could not read file " + filename)
+
+    def write(self,
+              filename,
+              format="cyc",
+              config=None,
+              name=None,
+              include_header=True):
+
+        # Make a copy of the track and replace NaN with -999.0
+        gdf = self.gdf.fillna(-999.0)
+
+        if format == "ddb_cyc":
+            if config is None:
+                print("Error: no configuration file provided")
+                return
+            write_ddb_cyc(filename, gdf, config, name, self.unit_intensity, self.unit_radii)
+        elif format == "cyc":
+            write_cyc(filename, gdf, include_header=include_header)
+        else:
+            raise Exception("Error: track format " + format + " not supported")
 
     # 3A. convert_units_imperial_metric
     def convert_units_imperial_to_metric(self, config):
@@ -134,8 +181,7 @@ class TropicalCycloneTrack:
             self.unit_intensity = "ms"
             self.unit_radii = "km"
 
-
-    def compute_forward_speed(self, config):
+    def compute_forward_speed(self):
         """Computes forward speed and dpcdt and store these in track geodataframe"""
 
         # Assign variables to geopandas dataframe
@@ -232,7 +278,6 @@ class TropicalCycloneTrack:
             self.gdf.vty[it] = uy  # forward speed in y
             self.gdf.dpcdt[it] = dpcdt  # pressure difference in time
 
-
     # Support functions for creating spiderweb
     # 1. estimate_missing_values => still assuming imperial system
     def estimate_missing_values(self, config):
@@ -279,13 +324,13 @@ class TropicalCycloneTrack:
                     else:
                         pc = wpr_holland2008(
                             vmax=self.gdf.vmax[it],
-                            pn=self.background_pressure,
+                            pn=config["background_pressure"],
                             phi=coords_it.y,
                             dpcdt=self.gdf.dpcdt[it],
                             vt=np.sqrt(
                                 self.gdf.vtx[it] ** 2 + self.gdf.vty[it] ** 2
                             ),
-                            rhoa=self.rho_air,
+                            rhoa=config["rho_air"],
                         )
 
                     # place this
@@ -379,794 +424,143 @@ class TropicalCycloneTrack:
                             self.gdf.r35_sw[it] = dr35["mode"] + self.gdf.rmw[it]
                             self.gdf.r35_nw[it] = dr35["mode"] + self.gdf.rmw[it]
 
-    # 2A. cut_off_low_wind_speeds
-    def cut_off_low_wind_speeds(self):
-        # Only apply this when the cut_off wind is defined
-        if self.low_wind_speeds_cut_off > 0.0:
-            # Find first
-            ifirst = []
-            for it in range(len(self.track)):
-                if self.track.vmax[it] >= self.low_wind_speeds_cut_off and not ifirst:
-                    ifirst = it
-                    break
-            if ifirst > 0:
-                self.track = self.track.drop(list(range(0, ifirst)))
-                self.track = self.track.reset_index(drop=True)
+    # # 2A. cut_off_low_wind_speeds (should not do this anymore)
+    # def cut_off_low_wind_speeds(self):
+    #     # Only apply this when the cut_off wind is defined
+    #     if self.low_wind_speeds_cut_off > 0.0:
+    #         # Find first
+    #         ifirst = []
+    #         for it in range(len(self.track)):
+    #             if self.track.vmax[it] >= self.low_wind_speeds_cut_off and not ifirst:
+    #                 ifirst = it
+    #                 break
+    #         if ifirst > 0:
+    #             self.track = self.track.drop(list(range(0, ifirst)))
+    #             self.track = self.track.reset_index(drop=True)
 
-            # Find last
-            ilast = []
-            for it in range(len(self.track) - 1, 0 - 1, -1):
-                if self.track.vmax[it] >= self.low_wind_speeds_cut_off and not ilast:
-                    ilast = it
-                    break
-            if ilast:
-                self.track = self.track.drop(list(range(ilast + 1, len(self.track))))
-                self.track = self.track.reset_index(drop=True)
+    #         # Find last
+    #         ilast = []
+    #         for it in range(len(self.track) - 1, 0 - 1, -1):
+    #             if self.track.vmax[it] >= self.low_wind_speeds_cut_off and not ilast:
+    #                 ilast = it
+    #                 break
+    #         if ilast:
+    #             self.track = self.track.drop(list(range(ilast + 1, len(self.track))))
+    #             self.track = self.track.reset_index(drop=True)
 
-        else:
-            if self.debug == 1:
-                print("No cut_off_low_wind_speeds since wind speed is zero or lower")
+    #     else:
+    #         if self.debug == 1:
+    #             print("No cut_off_low_wind_speeds since wind speed is zero or lower")
 
-    # 2B. Extent track with certain number of days
-    def adjust_track_extent(self):
-        # Only apply this when the extend days are defined
-        if self.extend_track > 0.0:
-            # Compute last gradient
-            it_last = len(self.track) - 1
-            coords2 = self.track.geometry[it_last]  # last
-            datetime2 = datetime.strptime(
-                self.track.datetime[it_last], dateformat_module
-            )
-            it = len(self.track) - 2
-            coords1 = self.track.geometry[it]  # first
-            datetime1 = datetime.strptime(self.track.datetime[it], dateformat_module)
-            dx = coords2.x - coords1.x
-            dy = coords2.y - coords1.y
-            dt = datetime2 - datetime1
+    def extend(self, hours_before=None, hours_after=None):
+        """Extend the track with a certain number of hours before and after the track."""
+        if hours_before is not None:
+            t0 = datetime.strptime(self.gdf.datetime[0], dateformat_module)
+            t = t0 - timedelta(hours=hours_before)
+            self.add_point(t)
+        if hours_after is not None:
+            t1 = datetime.strptime(self.gdf.datetime[len(self.gdf) - 1], dateformat_module)
+            t = t1 + timedelta(hours=hours_after)
+            self.add_point(t)    
 
-            # Extending the track
-            for i in range(1, int(self.extend_track)):
-                # Get location
-                dt_factor = 86400 / dt.seconds
-                x = coords2.x + dx * dt_factor * i
-                y = coords2.y + dy * dt_factor * i
-                point = Point(x, y)
-
-                # Make time
-                date_format = "%Y%m%d %H%M%S"
-                tc_time = datetime.strptime(self.track.datetime[it_last], date_format)
-                tc_time = tc_time + timedelta(days=i)
-                tc_time_string = tc_time.strftime(date_format)
-
-                # Make GeoDataFrame
-                gdf = gpd.GeoDataFrame(
-                    {
-                        "datetime": [tc_time_string],
-                        "geometry": [point],
-                        "vmax": [self.track.vmax[it_last]],
-                        "pc": [self.track.pc[it_last]],
-                        "RMW": [self.track.RMW[it_last]],
-                        "R35_NE": [0],
-                        "R35_SE": [0],
-                        "R35_SW": [0],
-                        "R35_NW": [0],
-                        "R50_NE": [0],
-                        "R50_SE": [0],
-                        "R50_SW": [0],
-                        "R50_NW": [0],
-                        "R65_NE": [0],
-                        "R65_SE": [0],
-                        "R65_SW": [0],
-                        "R65_NW": [0],
-                        "R100_NE": [0],
-                        "R100_SE": [0],
-                        "R100_SW": [0],
-                        "R100_NW": [0],
-                    }
-                )
-                gdf.set_crs(epsg=self.EPSG, inplace=True)
-
-                # Append self
-                self.track = pd.concat([self.track, gdf])
-
-            # Done
-            self.track = self.track.reset_index(drop=True)
-            if self.debug == 1:
-                print("Successfully extended track")
-
-        else:
-            if self.debug == 1:
-                print("No extending since number of days is zero or lower")
+    def shorten(self, tstart=None, tend=None):
+        """Shorten the track to a certain time period."""
+        if tstart is not None:
+            for it, row in self.gdf.iterrows():
+                t = datetime.strptime(row.datetime, dateformat_module)
+                if t < tstart:
+                    self.remove_point(time=t)
+        if tend is not None:
+            for it, row in self.gdf.iterrows():
+                t = datetime.strptime(row.datetime, dateformat_module)
+                if t > tend:
+                    self.remove_point(time=t)            
 
     def resample(self, dt, method="spline"):
-        """Resample the track to a new time step. By default uses a spline interpolation for the track points."""
+
+        """Resample the track to a new time step. Returns new gdf. By default uses a spline interpolation for the track points."""
         
         # Get the first and last time
         t0 = datetime.strptime(self.gdf.datetime[0], dateformat_module)
         t1 = datetime.strptime(self.gdf.datetime[len(self.gdf) - 1], dateformat_module)
         dt = timedelta(hours=dt)
-        track1 = {}
+
         # Determine number of time steps
         nt = int((t1 - t0) / dt) + 1
-        track1["datetime"] = [t0 + x * dt for x in range(nt)]
 
-        track0 = {}
-        track0["datetime"] = []
-        track0["x"]        = []
-        track0["y"]        = []
-        # Loop through columns in gdf
-        for column in self.gdf.items():
-            if column[0] == "datetime":
-                continue
-            elif column[0] == "geometry":
-                continue
-            else:
-                track0[column[0]] = []
-
-        # Now loop through the times
-        for index, row in self.gdf.iterrows():
-            # Convert to datetime
-            track0["datetime"].append(datetime.strptime(row.datetime, dateformat_module))
-            # Get x and y
-            track0["x"].append(row.geometry.x)
-            track0["y"].append(row.geometry.y)
-            # Loop through columns in gdf
-            for column in self.gdf.items():
-                if column[0] == "datetime":
-                    continue
-                elif column[0] == "geometry":
-                    continue
-                else:
-                    track0[column[0]].append(row[column[0]])
-
-        # Convert to timestamp for interpolation
-        track0["timestamp"] = [date.timestamp() for date in track0["datetime"]]
-        track1["timestamp"] = [date.timestamp() for date in track1["datetime"]]
-
-        # Iterate through items in track0
-        for key, value in track0.items():
-            if key == "datetime" or key == "timestamp":
-                continue
-            elif key == "x" or key == "y":
-                if method == "linear":
-                    f = interp1d(track0["timestamp"], value)
-                else:
-                    f = CubicSpline(track0["timestamp"], value)
-                track1[key] = f(track1["timestamp"])
-            else:
-                # Interpolate linearly
-                f = interp1d(track0["timestamp"], value)
-                track1[key] = f(track1["timestamp"])
-
-        # And now create a new gdf
+        # Create a new track gdf
         gdf = GeoDataFrame()
-        for index, time in enumerate(track1["datetime"]):
-            point = Point(track1["x"][index], track1["y"][index])
-            gdf_point = GeoDataFrame()
-            gdf_point["geometry"] = [Point(track1["x"][index], track1["y"][index])]  # Assign the new geometry
-            gdf_point["datetime"] = track1["datetime"][index].strftime(dateformat_module)
-            # Loop through items in track1
-            for key, value in track1.items():
-                if key == "datetime" or key == "timestamp" or key == "x" or key == "y":
-                    continue
-                else:
-                    gdf_point[key] = track1[key][index]
-            gdf = pd.concat([gdf, gdf_point], ignore_index=True)        
 
-        crs = self.gdf.crs
-        self.gdf = gdf
-        self.gdf.set_crs(crs, inplace=True)
-
-
-
-    # # 3B. convert_units_metric_imperial
-    # def convert_units_metric_imperial(self):
-    #     # Convert wind speeds
-    #     # from  m/s     - we account for conversion here
-    #     # from  knots   - typically 1-minute averaged
-
-    #     if (self.unit_intensity == "ms") and (self.unit_radii == "km"):
-    #         # Intensity first
-    #         self.track.vmax = (
-    #             self.track.vmax / knots_to_ms / self.wind_conversion_factor
-    #         )
-
-    #         # Convert radius of maximum winds
-    #         self.track.RMW = self.track.RMW / nm_to_km
-
-    #         # Convert wind radii
-    #         for it in range(len(self.track)):
-    #             # R35
-    #             if self.track.R35_NE[it] > 0.0:
-    #                 self.track.R35_NE[it] = self.track.R35_NE[it] / nm_to_km
-    #             else:
-    #                 self.track.R35_NE[it] = -999.0
-
-    #             if self.track.R35_SE[it] > 0.0:
-    #                 self.track.R35_SE[it] = self.track.R35_SE[it] / nm_to_km
-    #             else:
-    #                 self.track.R35_SE[it] = -999.0
-
-    #             if self.track.R35_SW[it] > 0:
-    #                 self.track.R35_SW[it] = self.track.R35_SW[it] / nm_to_km
-    #             else:
-    #                 self.track.R35_SW[it] = -999.0
-
-    #             if self.track.R35_NW[it] > 0.0:
-    #                 self.track.R35_NW[it] = self.track.R35_NW[it] / nm_to_km
-    #             else:
-    #                 self.track.R35_NW[it] = -999.0
-
-    #             # R50
-    #             if self.track.R50_NE[it] > 0.0:
-    #                 self.track.R50_NE[it] = self.track.R50_NE[it] / nm_to_km
-    #             else:
-    #                 self.track.R50_NE[it] = -999.0
-
-    #             if self.track.R50_SE[it] > 0.0:
-    #                 self.track.R50_SE[it] = self.track.R50_SE[it] / nm_to_km
-    #             else:
-    #                 self.track.R50_SE[it] = -999.0
-
-    #             if self.track.R50_SW[it] > 0.0:
-    #                 self.track.R50_SW[it] = self.track.R50_SW[it] / nm_to_km
-    #             else:
-    #                 self.track.R50_SW[it] = -999.0
-
-    #             if self.track.R50_NW[it] > 0.0:
-    #                 self.track.R50_NW[it] = self.track.R50_NW[it] / nm_to_km
-    #             else:
-    #                 self.track.R50_NW[it] = -999.0
-
-    #             # R65
-    #             if self.track.R65_NE[it] > 0.0:
-    #                 self.track.R65_NE[it] = self.track.R65_NE[it] / nm_to_km
-    #             else:
-    #                 self.track.R65_NE[it] = -999.0
-
-    #             if self.track.R65_SE[it] > 0.0:
-    #                 self.track.R65_SE[it] = self.track.R65_SE[it] / nm_to_km
-    #             else:
-    #                 self.track.R65_SE[it] = -999.0
-
-    #             if self.track.R65_SW[it] > 0.0:
-    #                 self.track.R65_SW[it] = self.track.R65_SW[it] / nm_to_km
-    #             else:
-    #                 self.track.R65_SW[it] = -999.0
-
-    #             if self.track.R65_NW[it] > 0.0:
-    #                 self.track.R65_NW[it] = self.track.R65_NW[it] / nm_to_km
-    #             else:
-    #                 self.track.R65_NW[it] = -999.0
-
-    #             # R100
-    #             if self.track.R100_NE[it] > 0.0:
-    #                 self.track.R100_NE[it] = self.track.R100_NE[it] / nm_to_km
-    #             else:
-    #                 self.track.R100_NE[it] = -999.0
-
-    #             if self.track.R100_SE[it] > 0.0:
-    #                 self.track.R100_SE[it] = self.track.R100_SE[it] / nm_to_km
-    #             else:
-    #                 self.track.R100_SE[it] = -999.0
-
-    #             if self.track.R100_SW[it] > 0.0:
-    #                 self.track.R100_SW[it] = self.track.R100_SW[it] / nm_to_km
-    #             else:
-    #                 self.track.R100_SW[it] = -999.0
-
-    #             if self.track.R100_NW[it] > 0.0:
-    #                 self.track.R100_NW[it] = self.track.R100_NW[it] / nm_to_km
-    #             else:
-    #                 self.track.R100_NW[it] = -999.0
-
-    #         # Done, so set variable
-    #         self.unit_intensity = "knots"
-    #         self.unit_radii = "nm"
-    #         if self.debug == 1:
-    #             print("convert units to imperial system")
-
-    #     else:
-    #         if self.debug == 1:
-    #             print("units are already in the imperial system: no action")
-
-    # Providing the track (from other source)
-    def provide_track(
-        self, datetimes=[], lons=[], lats=[], winds=[], pressures=[], rmw=[], r35=[]
-    ):
-        # All variables are Python lists and we simply place them in the right structure
-        # note that value -999 is a NaN for this module
-        # we assume datetimes but convert them internally
-        # r35 is a matrix with time and NE, SE, sw, nw Symmetric_Circle
-
-        # Loop over the list and place them
-        for index, vmax in enumerate(winds):
-            # Get time ready
-            date_format = "%Y%m%d %H%M%S"
-            tc_time = datetimes[index]
-            tc_time_string = tc_time.strftime(date_format)
-
-            # Make GeoDataFrame
-            point = Point(lons[index], lats[index])
-            gdf = gpd.GeoDataFrame(
-                {
-                    "datetime": [tc_time_string],
-                    "geometry": [point],
-                    "vmax": [vmax],
-                    "pc": [pressures[index]],
-                    "RMW": [rmw[index]],
-                    "R35_NE": [r35[index][0]],
-                    "R35_SE": [r35[index][1]],
-                    "R35_sw": [r35[index][2]],
-                    "R35_nw": [r35[index][3]],
-                    "R50_NE": [-999],
-                    "R50_SE": [-999],
-                    "R50_sw": [-999],
-                    "R50_nw": [-999],
-                    "R65_NE": [-999],
-                    "R65_SE": [-999],
-                    "R65_sw": [-999],
-                    "R65_nw": [-999],
-                    "R100_NE": [-999],
-                    "R100_SE": [-999],
-                    "R100_sw": [-999],
-                    "R100_nw": [-999],
-                }
-            )
-            gdf.set_crs(epsg=self.EPSG, inplace=True)
-
-            # Append self
-            self.track = pd.concat([self.track, gdf])
-
-        # Done with this
-        self.track = self.track.reset_index(drop=True)
-        self.track = self.track.drop([0])  # remove the dummy
-        self.track = self.track.reset_index(drop=True)
-
-
-    def delete_point(self, index=None, time=None):
-        # Remove point from the track
-        pass    
-
-    def interpolate(time=None, dt=None, t0=None, t1=None):
-        pass
-
-    def add_point(self, time, lon, lat, vmax=-999.0, pc=-999.0, rmw=-999.0):
-        # Insert point at the right place, depending on the time        
-        # point = Point(lon, lat)
-        # gdf = gpd.GeoDataFrame(
-        #     {
-        #         "datetime": [time],
-        #         "geometry": [point],
-        #         "vmax": [vmax],
-        #         "pc": [pc],
-        #         "RMW": [rmw],
-        #         "R35_NE": [-999],
-        #         "R35_SE": [-999],
-        #         "R35_SW": [-999],
-        #         "R35_NW": [-999],
-        #         "R50_NE": [-999],
-        #         "R50_SE": [-999],
-        #         "R50_SW": [-999],
-        #         "R50_NW": [-999],
-        #         "R65_NE": [-999],
-        #         "R65_SE": [-999],
-        #         "R65_SW": [-999],
-        #         "R65_NW": [-999],
-        #         "R100_NE": [-999],
-        #         "R100_SE": [-999],
-        #         "R100_SW": [-999],
-        #         "R100_NW": [-999],
-        #     }
-        # )
-        self.gdf.set_crs(epsg=self.EPSG, inplace=True)
-        # pass  
-
-    def read_ddb_config(self, filename):
-
-        config = {}
-
-        # Read all the lines first
-        with open(filename, "r") as f:
-            lines = f.readlines()
-
-        # Define the name first
-        for line in lines:
-            if line[0:4] == "Name":
-                string_value = line[5:]
-                string_value = "".join(ch for ch in string_value if ch.isalnum())
-                config[name] = string_value
-
-        # Define other variables names (if they exist)
-        for i in range(len(lines)):
-            line = lines[i]
-            if line[0:11] == "WindProfile":
-                string_value = line[23:]
-                string_value = "".join(ch for ch in string_value if ch.isalnum())
-                config[wind_profile] = string_value
-            if line[0:20] == "WindPressureRelation":
-                string_value = line[23:]
-                string_value = "".join(ch for ch in string_value if ch.isalnum())
-                config[wind_pressure_relation] = string_value
-            if line[0:12] == "RMaxRelation":
-                string_value = line[23:]
-                string_value = "".join(ch for ch in string_value if ch.isalnum())
-                config[rmw_relation] = string_value
-            if line[0:18] == "Backgroundpressure":
-                string_value = line[23:]
-                config[background_pressure] = float(string_value)
-            if line[0:9] == "PhiSpiral":
-                string_value = line[23:]
-                config[phi_spiral] = float(string_value)
-            if line[0:20] == "WindConversionFactor":
-                string_value = line[23:]
-                config[wind_conversion_factor] = float(string_value)
-            if line[0:15] == "SpiderwebRadius":
-                string_value = line[23:]
-                config[spiderweb_radius] = float(string_value)
-            if line[0:12] == "NrRadialBins":
-                string_value = line[23:]
-                config[nr_radial_bins] = int(string_value)
-            if line[0:17] == "NrDirectionalBins":
-                string_value = line[23:]
-                config[nr_directional_bins] = int(string_value)
-
-        # Read the track
-        for i in range(len(lines)):
-            line = lines[i]
-            if line[0:15] == "##    Datetime " or line[0:15] == "#   Date   Time":
-                break
-
-        # Place coordinates in Tropical Cyclone Track
-        for j in range(i + 2, len(lines)):
-            # Get values
-            line = lines[j]
-            line = line.split()
-            date_format = "%Y%m%d %H%M%S"
-            date_string = line[0] + " " + line[1]
-            tc_time = datetime.strptime(date_string, date_format)
-            tc_time_string = tc_time.strftime(date_format)
-            y = float(line[2])
-            x = float(line[3])
-            vmax = float(line[4])
-            pc = float(line[5])
-            RMW = float(line[6])
-            R35_NE = float(line[7])
-            R35_SE = float(line[8])
-            R35_SW = float(line[9])
-            R35_NW = float(line[10])
-            R50_NE = float(line[11])
-            R50_SE = float(line[12])
-            R50_SW = float(line[13])
-            R50_NW = float(line[14])
-            R65_NE = float(line[15])
-            R65_SE = float(line[16])
-            R65_SW = float(line[17])
-            R65_NW = float(line[18])
-            R100_NE = float(line[19])
-            R100_SE = float(line[20])
-            R100_SW = float(line[21])
-            R100_NW = float(line[22])
-
-            # Make GeoDataFrame
-            point = Point(x, y)
-            gdf = GeoDataFrame(
-                {
-                    "datetime": [tc_time_string],
-                    "geometry": [point],
-                    "vmax": [vmax],
-                    "pc": [pc],
-                    "RMW": [RMW],
-                    "R35_NE": [R35_NE],
-                    "R35_SE": [R35_SE],
-                    "R35_SW": [R35_SW],
-                    "R35_NW": [R35_NW],
-                    "R50_NE": [R50_NE],
-                    "R50_SE": [R50_SE],
-                    "R50_SW": [R50_SW],
-                    "R50_NW": [R50_NW],
-                    "R65_NE": [R65_NE],
-                    "R65_SE": [R65_SE],
-                    "R65_SW": [R65_SW],
-                    "R65_NW": [R65_NW],
-                    "R100_NE": [R100_NE],
-                    "R100_SE": [R100_SE],
-                    "R100_SW": [R100_SW],
-                    "R100_NW": [R100_NW],
-                }
-            )
-            gdf.set_crs(epsg=self.EPSG, inplace=True)
-
-            # Append self
-            self.track = pd.concat([self.track, gdf])
-
-        # Done with this
-        self.gdf = self.gdf.reset_index(drop=True)
-        self.gdf = self.gdf.drop([0])  # remove the dummy
-        self.gdf = self.gdf.reset_index(drop=True)
-
-    def read_trk(self, filename):
-
-        # Initialize variables
-        lasttime = np.datetime64(datetime.strptime("2000010118", "%Y%m%d%H"))
-
-        # Create a new empty GDF
-        self.gdf = GeoDataFrame()
-
-        # Open the file
-        with open(filename, "r") as fid:
-
-            # Read line by line
-            for s0 in fid:
-                s0 = s0.strip()
-                if not s0:
-                    continue
-
-                vmax = np.nan
-                pc   = np.nan
-                rmax = np.nan
-                r35_ne = np.nan
-                r35_se = np.nan
-                r35_sw = np.nan
-                r35_nw = np.nan
-                r50_ne = np.nan
-                r50_se = np.nan
-                r50_sw = np.nan
-                r50_nw = np.nan
-                r65_ne = np.nan
-                r65_se = np.nan
-                r65_sw = np.nan
-                r65_nw = np.nan
-                r100_ne = np.nan
-                r100_se = np.nan
-                r100_sw = np.nan
-                r100_nw = np.nan
-
-                # Start
-                s = s0.split(",")
-                tc = {"name": "not_known"}
-                tc["basin"] = s[0]
-                tc["storm_number"] = int(s[1])
-
-                # Read time
-                tstr = str(s[2])
-                tstr = tstr.replace(" ", "")
-                time = datetime.strptime(tstr, "%Y%m%d%H")
-                newtime = np.datetime64(time)
-
-                # Add forecasted time
-                hrs = float(s[5])
-                newtime = newtime + np.timedelta64(int(hrs * 3600), "s")
-
-                # Latitude
-                if s[6][-1] == "N":
-                    y = 0.1 * float(s[6][:-1])
-                else:
-                    y = -0.1 * float(s[6][:-1])
-                # Longitude
-                if s[7][-1] == "E":
-                    x = 0.1 * float(s[7][:-1])
-                else:
-                    x = -0.1 * float(s[7][:-1])
-
-                # vmax
-                if float(s[8]) > 0:
-                    vmax = float(s[8])
-
-                # Pressure and raddi
-                if len(s) > 9:
-                    # Pressure
-                    if float(s[9]) > 0:
-                        pc = float(s[9])
-
-                    # Radii
-                    r = float(s[11])
-                    if r in [34, 35]:
-                        r35_ne = float(s[13])
-                        r35_se = float(s[14])
-                        r35_sw = float(s[15])
-                        r35_nw = float(s[16])
-                    elif r == 50:
-                        r50_ne = float(s[13])
-                        r50_se = float(s[14])
-                        r50_sw = float(s[15])
-                        r50_nw = float(s[16])
-                    elif r in [64, 65]:
-                        r65_ne = float(s[13])
-                        r65_se = float(s[14])
-                        r65_sw = float(s[15])
-                        r65_nw = float(s[16])
-                    elif r == 100:
-                        r100_ne = float(s[13])
-                        r100_se = float(s[14])
-                        r100_sw = float(s[15])
-                        r100_nw = float(s[16])
-
-                    # Other things
-                    if len(s) > 17:
-                        if s[17]:
-                            pressure_last_closed_isobar = float(s[17])
-                        if s[18]:
-                            radius_last_closed_isobar = float(s[18])
-                        if s[19]:
-                            try:
-                                if float(s[19]) > 0:
-                                    rmax = float(s[19])
-                            except ValueError:
-                                # print("Error: Unable to convert to float for RMW")
-                                rmax = np.nan
-                        if len(s) >= 28:
-                            if s[27]:
-                                name = s[27]
-
-                if newtime > lasttime + np.timedelta64(1, "s"):
-                    # New time point found
-                    # create new gdf
-                    new_point = True
-                    gdf_point = GeoDataFrame()
-                    gdf_point["geometry"] = [Point(x, y)]  # Assign the new geometry
-                    gdf_point["datetime"] = newtime.astype("O").strftime("%Y%m%d %H%M%S")
-                    gdf_point["vmax"]   = np.NaN
-                    gdf_point["pc"]     = np.NaN
-                    gdf_point["rmw"]    = np.NaN
-                    gdf_point["r35_ne"] = np.NaN
-                    gdf_point["r35_se"] = np.NaN
-                    gdf_point["r35_sw"] = np.NaN
-                    gdf_point["r35_nw"] = np.NaN
-                    gdf_point["r50_ne"] = np.NaN
-                    gdf_point["r50_se"] = np.NaN
-                    gdf_point["r50_sw"] = np.NaN
-                    gdf_point["r50_nw"] = np.NaN
-                    gdf_point["r65_ne"] = np.NaN
-                    gdf_point["r65_se"] = np.NaN
-                    gdf_point["r65_sw"] = np.NaN
-                    gdf_point["r65_nw"] = np.NaN
-                    gdf_point["r100_ne"] = np.NaN
-                    gdf_point["r100_se"] = np.NaN
-                    gdf_point["r100_sw"] = np.NaN
-                    gdf_point["r100_nw"] = np.NaN
-                else:
-                    new_point = False
-                        
-                # Update all variables in gdf (when it is not the first one)                
-                gdf_point["vmax"] = vmax
-                gdf_point["pc"]   = pc
-                gdf_point["rmw"]  = rmax
-                if r35_ne > 0.0:
-                    gdf_point["r35_ne"] = r35_ne
-                if r35_se > 0.0:
-                    gdf_point["r35_se"] = r35_se
-                if r35_sw > 0.0:
-                    gdf_point["r35_sw"] = r35_sw
-                if r35_nw > 0.0:
-                    gdf_point["r35_nw"] = r35_nw
-                if r50_ne > 0.0:
-                    gdf_point["r50_ne"] = r50_ne
-                if r50_se > 0.0:
-                    gdf_point["r50_se"] = r50_se
-                if r50_sw > 0.0:
-                    gdf_point["r50_sw"] = r50_sw
-                if r50_nw > 0.0:
-                    gdf_point["r50_nw"] = r50_nw
-                if r65_ne > 0.0:
-                    gdf_point["r65_ne"] = r65_ne
-                if r65_se > 0.0:
-                    gdf_point["r65_se"] = r65_se
-                if r65_sw > 0.0:
-                    gdf_point["r65_sw"] = r65_sw
-                if r65_nw > 0.0:
-                    gdf_point["r65_nw"] = r65_nw
-                if r100_ne > 0.0:
-                    gdf_point["r100_ne"] = r100_ne
-                if r100_se > 0.0:
-                    gdf_point["r100_se"] = r100_se
-                if r100_sw > 0.0:
-                    gdf_point["r100_sw"] = r100_sw
-                if r100_nw > 0.0:
-                    gdf_point["r100_nw"] = r100_nw
-
-                if new_point:
-                    # Add new point
-                    self.gdf = pd.concat([self.gdf, gdf_point])
-                else:
-                    # Replace row in dataframe with row from other dataframe
-                    self.gdf.iloc[-1] = gdf_point.iloc[0]
-
-                lasttime = newtime
-
-        # Done with this => rest so track looks good
-        self.gdf = self.gdf.reset_index(drop=True)
-        self.gdf.set_crs(epsg=self.epsg, inplace=True)
-
-    def write(self, filename, fmt="ddb_cyc"):
-        # If ddb_cyc
-        if fmt == "ddb_cyc":
-            # Open file
-            with open(filename, "wt") as f:
-                # # Print header
-                # f.writelines(
-                #     "# Tropical Cyclone Toolbox - Coastal Hazards Toolkit - "
-                #     + self.creation_time.strftime(dateformat_module)
-                #     + "\n"
-                # )
-
-                # # Print rest
-                # f.writelines('Name                   "' + self.name + '"\n')
-                # f.writelines("WindProfile            " + self.wind_profile + "\n")
-                # f.writelines(
-                #     "WindPressureRelation   " + self.wind_pressure_relation + "\n"
-                # )
-                # f.writelines("RMaxRelation           " + self.rmw_relation + "\n")
-                # f.writelines(
-                #     "Backgroundpressure     " + str(self.background_pressure) + "\n"
-                # )
-                # f.writelines("PhiSpiral              " + str(self.phi_spiral) + "\n")
-                # f.writelines(
-                #     "WindConversionFactor   " + str(self.wind_conversion_factor) + "\n"
-                # )
-                # f.writelines(
-                #     "SpiderwebRadius        " + str(self.spiderweb_radius) + "\n"
-                # )
-                # f.writelines(
-                #     "NrRadialBins           " + str(self.nr_radial_bins) + "\n"
-                # )
-                # f.writelines(
-                #     "NrDirectionalBins      " + str(self.nr_directional_bins) + "\n"
-                # )
-                # epsg = self.track.crs.name
-                # f.writelines("EPSG                   " + epsg + "\n")
-                # f.writelines(
-                #     "UnitIntensity          " + str(self.unit_intensity) + "\n"
-                # )
-                # f.writelines("UnitWindRadii          " + str(self.unit_radii) + "\n")
-
-                # # Print header for the track
-                # f.writelines("#  \n")
-                f.writelines(
-                    "#   Date   Time               Lat        Lon         Vmax       Pc          Rmax         R35(NE)      R35(SE)     R35(SW)     R35(NW)     R50(NE)     R50(SE)    R50(SW)    R50(NW)     R65(NE)     R65(SE)     R65(SW)     R65(NW)    R100(NE)    R100(SE)    R100(SW)    R100(NE)  \n"
-                )
-                f.writelines("#  \n")
-
-                # Print the actual track
-                for i in range(len(self.gdf)):
-
-                    f.writelines(self.gdf.datetime[i].rjust(20))
-                    coords = self.gdf.geometry[i]
-                    f.writelines(str(round(coords.y, 2)).rjust(12))
-                    f.writelines(str(round(coords.x, 2)).rjust(12))
-
-                    f.writelines(str(round(self.gdf.vmax[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.pc[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.rmw[i], 1)).rjust(12))
-
-                    f.writelines(str(round(self.gdf.r35_ne[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r35_se[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r35_sw[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r35_nw[i], 1)).rjust(12))
-
-                    f.writelines(str(round(self.gdf.r50_ne[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r50_se[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r50_sw[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r50_nw[i], 1)).rjust(12))
-
-                    f.writelines(str(round(self.gdf.r65_ne[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r65_se[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r65_sw[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r65_nw[i], 1)).rjust(12))
-
-                    f.writelines(str(round(self.gdf.r100_ne[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r100_se[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r100_sw[i], 1)).rjust(12))
-                    f.writelines(str(round(self.gdf.r100_nw[i], 1)).rjust(12))
-
-                    f.writelines("\n")
-
-            # if self.debug == 1:
-            #     print("Successfully written track - ddb_cyc")
+        # Copy first point of existing track
+        for it in range(nt):
+            gdf = pd.concat([gdf, self.gdf.iloc[[0]]], ignore_index=True)
+            gdf.datetime[it] = (t0 + it * dt).strftime(dateformat_module)
+
+        gdf = interpolate_track(self.gdf, gdf, method=method)
+
+        return gdf
+
+    def add_point(self, time: datetime,
+                  lon: float=-9999.0,
+                  lat: float=-9999.0,
+                  method: str="spline"):
+        """Insert a point at a certain time and location (optional)"""
+            
+        # Find index where to insert
+        # Check first if time is before the first time
+        t0 = datetime.strptime(self.gdf.datetime[0], dateformat_module)
+        if time < t0:
+            index = 0
         else:
-            print(
-                'For other methods of writing the track; please used the "tc.track.to_file" option'
-            )
+            for it, row in self.gdf.iterrows():
+                if time == datetime.strptime(row.datetime, dateformat_module):
+                    raise Exception("Error: time already exists in track")
+                if time > datetime.strptime(row.datetime, dateformat_module):
+                    index = it + 1
+
+        if index == 0 or index == len(self.gdf):
+            # Need to compute the forward speed to estimate track position
+            self.compute_forward_speed()
+
+        gdf_point, index = interpolate_to_point(self.gdf, time, method=method)
+
+        # Check if lon and lat are provided
+        if lon == -9999.0 or lat == -9999.0:
+            # Not provided so use interpolated values
+            pass
+        else:
+            # Use provided coordinates
+            point = Point(lon, lat)
+            gdf_point["geometry"] = [point]
+
+        gdf_point.replace(-999.0, np.NaN, inplace=True)
+        crs = self.gdf.crs
+
+        if index == 0:
+            self.gdf = pd.concat([gdf_point, self.gdf], ignore_index=True)
+        elif index == len(self.gdf):
+            self.gdf = pd.concat([self.gdf, gdf_point], ignore_index=True)
+        else:
+            self.gdf = pd.concat([self.gdf.iloc[:index], gdf_point, self.gdf.iloc[index:]], ignore_index=True)            
+
+        self.gdf = self.gdf.set_crs(crs)    
+        self.gdf = self.gdf.reset_index(drop=True)
+
+    def remove_point(self, index=None, time=None):
+        """Remove point from the track by index or time"""
+
+        if index is not None:
+            self.gdf = self.gdf.drop(index)
+            self.gdf = self.gdf.reset_index(drop=True)
+
+        if time is not None:
+            # Loop through the track and find the index
+            for index, row in self.gdf.iterrows():
+                t = datetime.strptime(row.datetime, dateformat_module)
+                if t == time:
+                    self.gdf = self.gdf.drop(index)
+                    self.gdf = self.gdf.reset_index(drop=True)
+                    break
 
     def to_gdf(self, filename=None):
         """Make track GeoDataFrame and optionally write to file"""
@@ -1224,3 +618,666 @@ class TropicalCycloneTrack:
                 gdf_to_geojson_js(gdf, filename, varname="track_ensemble")   
 
         return gdf    
+
+
+def read_cyc(filename):
+    # cyc format
+
+    gdf = GeoDataFrame()
+
+    # Read all the lines first
+    with open(filename, "r") as f:
+        lines = f.readlines()
+
+    for line in lines:
+        if line[0] == "#":
+            continue
+        # Get values
+        line = line.split()
+        date_format = "%Y%m%d %H%M%S"
+        date_string = line[0] + " " + line[1]
+        tc_time = datetime.strptime(date_string, date_format)
+        tc_time_string = tc_time.strftime(date_format)
+        y = float(line[2])
+        x = float(line[3])
+        vmax = float(line[4])
+        pc = float(line[5])
+        RMW = float(line[6])
+        R35_NE = float(line[7])
+        R35_SE = float(line[8])
+        R35_SW = float(line[9])
+        R35_NW = float(line[10])
+        R50_NE = float(line[11])
+        R50_SE = float(line[12])
+        R50_SW = float(line[13])
+        R50_NW = float(line[14])
+        R65_NE = float(line[15])
+        R65_SE = float(line[16])
+        R65_SW = float(line[17])
+        R65_NW = float(line[18])
+        R100_NE = float(line[19])
+        R100_SE = float(line[20])
+        R100_SW = float(line[21])
+        R100_NW = float(line[22])
+
+        # Make GeoDataFrame
+        point = Point(x, y)
+        gdf_point = GeoDataFrame(
+            {
+                "datetime": [tc_time_string],
+                "geometry": [point],
+                "vmax": [vmax],
+                "pc": [pc],
+                "rmw": [RMW],
+                "r35_ne": [R35_NE],
+                "r35_se": [R35_SE],
+                "r35_sw": [R35_SW],
+                "r35_nw": [R35_NW],
+                "r50_ne": [R50_NE],
+                "r50_se": [R50_SE],
+                "r50_sw": [R50_SW],
+                "r50_nw": [R50_NW],
+                "r65_ne": [R65_NE],
+                "r65_se": [R65_SE],
+                "r65_sw": [R65_SW],
+                "r65_nw": [R65_NW],
+                "r100_ne": [R100_NE],
+                "r100_se": [R100_SE],
+                "r100_sw": [R100_SW],
+                "r100_nw": [R100_NW],
+            }
+        )
+
+        # Append self
+        gdf = pd.concat([gdf, gdf_point])
+
+    # Replace -999.0 with NaN
+    gdf = gdf.replace(-999.0, np.nan)
+    gdf = gdf.reset_index(drop=True)
+    gdf = gdf.set_crs(crs=CRS(4326), inplace=True)
+
+    return gdf
+
+def read_ddb_cyc(filename):
+    # Old ddb cyc format
+
+    gdf = GeoDataFrame()
+    config = {}
+
+    # Read all the lines first
+    with open(filename, "r") as f:
+        lines = f.readlines()
+
+    # Define the name first
+    for line in lines:
+        if line[0:4] == "Name":
+            string_value = line[5:]
+            string_value = "".join(ch for ch in string_value if ch.isalnum())
+            name = string_value
+
+    # Define other variables names (if they exist)
+    for i in range(len(lines)):
+        line = lines[i]
+        if line[0:11] == "WindProfile":
+            string_value = line[23:]
+            string_value = "".join(ch for ch in string_value if ch.isalnum())
+            config["wind_profile"] = string_value
+        if line[0:20] == "WindPressureRelation":
+            string_value = line[23:]
+            string_value = "".join(ch for ch in string_value if ch.isalnum())
+            config["wind_pressure_relation"] = string_value
+        if line[0:12] == "RMaxRelation":
+            string_value = line[23:]
+            string_value = "".join(ch for ch in string_value if ch.isalnum())
+            config["rmw_relation"] = string_value
+        if line[0:18] == "Backgroundpressure":
+            string_value = line[23:]
+            config["background_pressure"] = float(string_value)
+        if line[0:9] == "PhiSpiral":
+            string_value = line[23:]
+            config["phi_spiral"] = float(string_value)
+        if line[0:20] == "WindConversionFactor":
+            string_value = line[23:]
+            config["wind_conversion_factor"] = float(string_value)
+        if line[0:15] == "SpiderwebRadius":
+            string_value = line[23:]
+            config["spiderweb_radius"] = float(string_value)
+        if line[0:12] == "NrRadialBins":
+            string_value = line[23:]
+            config["nr_radial_bins"] = int(string_value)
+        if line[0:17] == "NrDirectionalBins":
+            string_value = line[23:]
+            config["nr_directional_bins"] = int(string_value)
+
+    # Read the track and find last comment line
+    for i in range(len(lines)):
+        line = lines[i]
+        if line[0] == "#":
+            icomment = i
+
+    # Place coordinates in Tropical Cyclone Track
+    for j in range(icomment + 1, len(lines)):
+        # Get values
+        line = lines[j]
+        line = line.split()
+        date_format = "%Y%m%d %H%M%S"
+        date_string = line[0] + " " + line[1]
+        tc_time = datetime.strptime(date_string, date_format)
+        tc_time_string = tc_time.strftime(date_format)
+        y = float(line[2])
+        x = float(line[3])
+        vmax = float(line[4])
+        pc = float(line[5])
+        RMW = float(line[6])
+        R35_NE = float(line[7])
+        R35_SE = float(line[8])
+        R35_SW = float(line[9])
+        R35_NW = float(line[10])
+        R50_NE = float(line[11])
+        R50_SE = float(line[12])
+        R50_SW = float(line[13])
+        R50_NW = float(line[14])
+        R65_NE = float(line[15])
+        R65_SE = float(line[16])
+        R65_SW = float(line[17])
+        R65_NW = float(line[18])
+        R100_NE = float(line[19])
+        R100_SE = float(line[20])
+        R100_SW = float(line[21])
+        R100_NW = float(line[22])
+
+        # Make GeoDataFrame
+        point = Point(x, y)
+        gdf_point = GeoDataFrame(
+            {
+                "datetime": [tc_time_string],
+                "geometry": [point],
+                "vmax": [vmax],
+                "pc": [pc],
+                "rmw": [RMW],
+                "r35_ne": [R35_NE],
+                "r35_se": [R35_SE],
+                "r35_sw": [R35_SW],
+                "r35_nw": [R35_NW],
+                "r50_ne": [R50_NE],
+                "r50_se": [R50_SE],
+                "r50_sw": [R50_SW],
+                "r50_nw": [R50_NW],
+                "r65_ne": [R65_NE],
+                "r65_se": [R65_SE],
+                "r65_sw": [R65_SW],
+                "r65_nw": [R65_NW],
+                "r100_ne": [R100_NE],
+                "r100_se": [R100_SE],
+                "r100_sw": [R100_SW],
+                "r100_nw": [R100_NW],
+            }
+        )
+
+        # Append self
+        gdf = pd.concat([gdf, gdf_point])
+
+    # Replace -999.0 with NaN
+    gdf = gdf.replace(-999.0, np.nan)
+    gdf = gdf.reset_index(drop=True)
+    gdf = gdf.set_crs(crs=CRS(4326), inplace=True)
+
+    return gdf, config, name
+
+def read_trk(filename):
+    # Read the track from a TRK file
+
+    # Create a new empty GDF
+    gdf = GeoDataFrame()
+
+    # Initialize variables
+    lasttime = np.datetime64(datetime.strptime("2000010118", "%Y%m%d%H"))
+
+    # Open the file
+    with open(filename, "r") as fid:
+
+        # Read line by line
+        for s0 in fid:
+            s0 = s0.strip()
+            if not s0:
+                continue
+
+            vmax = np.nan
+            pc   = np.nan
+            rmax = np.nan
+            r35_ne = np.nan
+            r35_se = np.nan
+            r35_sw = np.nan
+            r35_nw = np.nan
+            r50_ne = np.nan
+            r50_se = np.nan
+            r50_sw = np.nan
+            r50_nw = np.nan
+            r65_ne = np.nan
+            r65_se = np.nan
+            r65_sw = np.nan
+            r65_nw = np.nan
+            r100_ne = np.nan
+            r100_se = np.nan
+            r100_sw = np.nan
+            r100_nw = np.nan
+
+            # Start
+            s = s0.split(",")
+            tc = {"name": "not_known"}
+            tc["basin"] = s[0]
+            tc["storm_number"] = int(s[1])
+
+            # Read time
+            tstr = str(s[2])
+            tstr = tstr.replace(" ", "")
+            time = datetime.strptime(tstr, "%Y%m%d%H")
+            newtime = np.datetime64(time)
+
+            # Add forecasted time
+            hrs = float(s[5])
+            newtime = newtime + np.timedelta64(int(hrs * 3600), "s")
+
+            # Latitude
+            if s[6][-1] == "N":
+                y = 0.1 * float(s[6][:-1])
+            else:
+                y = -0.1 * float(s[6][:-1])
+            # Longitude
+            if s[7][-1] == "E":
+                x = 0.1 * float(s[7][:-1])
+            else:
+                x = -0.1 * float(s[7][:-1])
+
+            # vmax
+            if float(s[8]) > 0:
+                vmax = float(s[8])
+
+            # Pressure and raddi
+            if len(s) > 9:
+                # Pressure
+                if float(s[9]) > 0:
+                    pc = float(s[9])
+
+                # Radii
+                r = float(s[11])
+                if r in [34, 35]:
+                    r35_ne = float(s[13])
+                    r35_se = float(s[14])
+                    r35_sw = float(s[15])
+                    r35_nw = float(s[16])
+                elif r == 50:
+                    r50_ne = float(s[13])
+                    r50_se = float(s[14])
+                    r50_sw = float(s[15])
+                    r50_nw = float(s[16])
+                elif r in [64, 65]:
+                    r65_ne = float(s[13])
+                    r65_se = float(s[14])
+                    r65_sw = float(s[15])
+                    r65_nw = float(s[16])
+                elif r == 100:
+                    r100_ne = float(s[13])
+                    r100_se = float(s[14])
+                    r100_sw = float(s[15])
+                    r100_nw = float(s[16])
+
+                # Other things
+                if len(s) > 17:
+                    if s[17]:
+                        pressure_last_closed_isobar = float(s[17])
+                    if s[18]:
+                        radius_last_closed_isobar = float(s[18])
+                    if s[19]:
+                        try:
+                            if float(s[19]) > 0:
+                                rmax = float(s[19])
+                        except ValueError:
+                            # print("Error: Unable to convert to float for RMW")
+                            rmax = np.nan
+                    if len(s) >= 28:
+                        if s[27]:
+                            name = s[27]
+
+            if newtime > lasttime + np.timedelta64(1, "s"):
+                # New time point found
+                # create new gdf
+                new_point = True
+                gdf_point = GeoDataFrame()
+                gdf_point["geometry"] = [Point(x, y)]  # Assign the new geometry
+                gdf_point["datetime"] = newtime.astype("O").strftime("%Y%m%d %H%M%S")
+                gdf_point["vmax"]   = np.NaN
+                gdf_point["pc"]     = np.NaN
+                gdf_point["rmw"]    = np.NaN
+                gdf_point["r35_ne"] = np.NaN
+                gdf_point["r35_se"] = np.NaN
+                gdf_point["r35_sw"] = np.NaN
+                gdf_point["r35_nw"] = np.NaN
+                gdf_point["r50_ne"] = np.NaN
+                gdf_point["r50_se"] = np.NaN
+                gdf_point["r50_sw"] = np.NaN
+                gdf_point["r50_nw"] = np.NaN
+                gdf_point["r65_ne"] = np.NaN
+                gdf_point["r65_se"] = np.NaN
+                gdf_point["r65_sw"] = np.NaN
+                gdf_point["r65_nw"] = np.NaN
+                gdf_point["r100_ne"] = np.NaN
+                gdf_point["r100_se"] = np.NaN
+                gdf_point["r100_sw"] = np.NaN
+                gdf_point["r100_nw"] = np.NaN
+            else:
+                new_point = False
+                    
+            # Update all variables in gdf (when it is not the first one)                
+            gdf_point["vmax"] = vmax
+            gdf_point["pc"]   = pc
+            gdf_point["rmw"]  = rmax
+            if r35_ne > 0.0:
+                gdf_point["r35_ne"] = r35_ne
+            if r35_se > 0.0:
+                gdf_point["r35_se"] = r35_se
+            if r35_sw > 0.0:
+                gdf_point["r35_sw"] = r35_sw
+            if r35_nw > 0.0:
+                gdf_point["r35_nw"] = r35_nw
+            if r50_ne > 0.0:
+                gdf_point["r50_ne"] = r50_ne
+            if r50_se > 0.0:
+                gdf_point["r50_se"] = r50_se
+            if r50_sw > 0.0:
+                gdf_point["r50_sw"] = r50_sw
+            if r50_nw > 0.0:
+                gdf_point["r50_nw"] = r50_nw
+            if r65_ne > 0.0:
+                gdf_point["r65_ne"] = r65_ne
+            if r65_se > 0.0:
+                gdf_point["r65_se"] = r65_se
+            if r65_sw > 0.0:
+                gdf_point["r65_sw"] = r65_sw
+            if r65_nw > 0.0:
+                gdf_point["r65_nw"] = r65_nw
+            if r100_ne > 0.0:
+                gdf_point["r100_ne"] = r100_ne
+            if r100_se > 0.0:
+                gdf_point["r100_se"] = r100_se
+            if r100_sw > 0.0:
+                gdf_point["r100_sw"] = r100_sw
+            if r100_nw > 0.0:
+                gdf_point["r100_nw"] = r100_nw
+
+            if new_point:
+                # Add new point
+                gdf = pd.concat([gdf, gdf_point])
+            else:
+                # Replace row in dataframe with row from other dataframe
+                gdf.iloc[-1] = gdf_point.iloc[0]
+
+            lasttime = newtime
+
+    # Done with this => rest so track looks good
+    gdf = gdf.reset_index(drop=True)
+    gdf = gdf.set_crs(crs=CRS(4326), inplace=True)
+
+    return gdf
+
+def write_cyc(filename, gdf, include_header=True):   
+    """Write to cyc format"""
+    with open(filename, "wt") as f:
+        # Print header
+        if include_header:
+            f.writelines(
+                "#   Date   Time      Lat      Lon     Vmax       Pc     Rmax  R35(NE)  R35(SE)  R35(SW)  R35(NW)  R50(NE)  R50(SE)  R50(SW)  R50(NW)  R65(NE)  R65(SE)  R65(SW)  R65(NW) R100(NE) R100(SE) R100(SW) R100(NE)\n"
+            )
+
+        # Print the actual track
+        for i in range(len(gdf)):
+
+            f.writelines(gdf.datetime[i].rjust(15))
+            coords = gdf.geometry[i]
+            f.writelines(str(round(coords.y, 2)).rjust(9))
+            f.writelines(str(round(coords.x, 2)).rjust(9))
+
+            f.writelines(str(round(gdf.vmax[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.pc[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.rmw[i], 1)).rjust(9))
+
+            f.writelines(str(round(gdf.r35_ne[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r35_se[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r35_sw[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r35_nw[i], 1)).rjust(9))
+
+            f.writelines(str(round(gdf.r50_ne[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r50_se[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r50_sw[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r50_nw[i], 1)).rjust(9))
+
+            f.writelines(str(round(gdf.r65_ne[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r65_se[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r65_sw[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r65_nw[i], 1)).rjust(9))
+
+            f.writelines(str(round(gdf.r100_ne[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r100_se[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r100_sw[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r100_nw[i], 1)).rjust(9))
+
+            f.writelines("\n")
+
+def write_ddb_cyc(filename, gdf, config, name, unit_intensity, unit_radii):
+    """Write to 'old' Delft Dashboard cyc format"""
+    with open(filename, "wt") as f:
+        # Print header
+        f.writelines(
+            "# Tropical Cyclone Toolbox - Coastal Hazards Toolkit - "
+            + datetime.now().strftime(dateformat_module)
+            + "\n"
+        )
+        # Print rest
+        f.writelines('Name                   "' + name + '"\n')
+        f.writelines("WindProfile            " + config["wind_profile"] + "\n")
+        f.writelines(
+            "WindPressureRelation   " + config["wind_pressure_relation"] + "\n"
+        )
+        f.writelines("RMaxRelation           " + config["rmw_relation"] + "\n")
+        f.writelines(
+            "Backgroundpressure     " + str(config["background_pressure"]) + "\n"
+        )
+        f.writelines("PhiSpiral              " + str(config["phi_spiral"]) + "\n")
+        f.writelines(
+            "WindConversionFactor   " + str(config["wind_conversion_factor"]) + "\n"
+        )
+        f.writelines(
+            "SpiderwebRadius        " + str(config["spiderweb_radius"]) + "\n"
+        )
+        f.writelines(
+            "NrRadialBins           " + str(config["nr_radial_bins"]) + "\n"
+        )
+        f.writelines(
+            "NrDirectionalBins      " + str(config["nr_directional_bins"]) + "\n"
+        )
+        f.writelines("EPSG                   WGS84\n")
+        f.writelines(
+            "UnitIntensity          " + str(unit_intensity) + "\n"
+        )
+        f.writelines("UnitWindRadii          " + str(unit_radii) + "\n")
+
+        # Print header for the track
+        f.writelines("#  \n")
+
+        f.writelines(
+            "#   Date   Time      Lat      Lon     Vmax       Pc     Rmax  R35(NE)  R35(SE)  R35(SW)  R35(NW)  R50(NE)  R50(SE)  R50(SW)  R50(NW)  R65(NE)  R65(SE)  R65(SW)  R65(NW) R100(NE) R100(SE) R100(SW) R100(NE)\n"
+        )
+        f.writelines("#  \n")
+
+        # Print the actual track
+        for i in range(len(gdf)):
+
+            f.writelines(gdf.datetime[i].rjust(15))
+            coords = gdf.geometry[i]
+            f.writelines(str(round(coords.y, 2)).rjust(9))
+            f.writelines(str(round(coords.x, 2)).rjust(9))
+
+            f.writelines(str(round(gdf.vmax[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.pc[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.rmw[i], 1)).rjust(9))
+
+            f.writelines(str(round(gdf.r35_ne[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r35_se[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r35_sw[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r35_nw[i], 1)).rjust(9))
+
+            f.writelines(str(round(gdf.r50_ne[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r50_se[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r50_sw[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r50_nw[i], 1)).rjust(9))
+
+            f.writelines(str(round(gdf.r65_ne[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r65_se[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r65_sw[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r65_nw[i], 1)).rjust(9))
+
+            f.writelines(str(round(gdf.r100_ne[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r100_se[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r100_sw[i], 1)).rjust(9))
+            f.writelines(str(round(gdf.r100_nw[i], 1)).rjust(9))
+
+            f.writelines("\n")
+
+def interpolate_track(gdf0, gdf1, method="linear"):
+    """Interpolate track0 to track1. Only the times need to be provided in track1. The rest will be interpolated. Method is either 'linear' or 'spline'"""
+
+    track0 = gdf_to_dict(gdf0)
+    track1 = gdf_to_dict(gdf1)
+
+    # Iterate through items in track0
+    for key, value in track0.items():
+        if key == "datetime" or key == "timestamp":
+            continue
+        elif key == "x" or key == "y":
+            if method == "linear":
+                f = interp1d(track0["timestamp"], value)
+            else:
+                f = CubicSpline(track0["timestamp"], value)
+            track1[key] = f(track1["timestamp"])
+        else:
+            # Interpolate linearly
+            f = interp1d(track0["timestamp"], value)
+            track1[key] = f(track1["timestamp"])
+
+    # And now create a new gdf
+    gdf = GeoDataFrame()
+    for index, time in enumerate(track1["datetime"]):
+        point = Point(track1["x"][index], track1["y"][index])
+        gdf_point = GeoDataFrame()
+        gdf_point["geometry"] = [Point(track1["x"][index], track1["y"][index])]  # Assign the new geometry
+        gdf_point["datetime"] = track1["datetime"][index].strftime(dateformat_module)
+        # Loop through items in track1
+        for key, value in track1.items():
+            if key == "datetime" or key == "timestamp" or key == "x" or key == "y":
+                continue
+            else:
+                gdf_point[key] = track1[key][index]
+        gdf = pd.concat([gdf, gdf_point], ignore_index=True)        
+    
+    gdf = gdf.set_crs(gdf0.crs, inplace=True)
+
+    return gdf
+
+def interpolate_to_point(gdf, time: datetime, method="spline"):
+    """Return interpolated track point at a certain time"""            
+    # Find index where to insert
+    # Check first if time is before the first time
+    t0 = datetime.strptime(gdf.datetime[0], dateformat_module)
+    if time < t0:
+        index = 0
+    else:
+        for it, row in gdf.iterrows():
+            if time == datetime.strptime(row.datetime, dateformat_module):
+                raise Exception("Error: time already exists in track")
+            if time > datetime.strptime(row.datetime, dateformat_module):
+                index = it + 1
+
+    if index == 0:
+        ipos = 0
+        vfac = -1.0
+    elif index == len(gdf):       
+        ipos = len(gdf) - 1
+        vfac = 1.0
+
+    if index == 0 or index == len(gdf):
+        # Need to estimate position from forward speed and direction
+
+        # Take starting point of original track
+        gdf_point = gdf.iloc[[ipos]].copy()
+
+        # Get time difference
+        dt = np.abs((time - datetime.strptime(gdf.datetime[ipos], dateformat_module)).total_seconds())
+
+        # Get forward speed at the start
+        vtx = vfac * gdf.vtx[ipos]
+        vty = vfac * gdf.vty[ipos]
+
+        # Starting point
+        lon0 = gdf.geometry[ipos].x
+        lat0 = gdf.geometry[ipos].y
+
+        # Determine azimuth and direction
+        az = 90.0 - np.arctan2(vty, vtx) * 180 / np.pi
+        dst = np.sqrt(vtx ** 2 + vty ** 2) * dt
+
+        # Along track error shift
+        lon1, lat1, backaz = geodesic.fwd(
+            lon0,
+            lat0,
+            az,
+            dst,
+            radians=False,
+        )
+        point = Point(lon1, lat1)
+        gdf_point["geometry"] = [point]
+        gdf_point["datetime"] = [time.strftime(dateformat_module)]
+
+    else:
+        # Need to do full interpolation
+        gdf_point = gdf.iloc[[0]].copy()
+        gdf_point["datetime"] = [time.strftime(dateformat_module)]
+        gdf_point = interpolate_track(gdf, gdf_point, method=method)
+
+    return gdf_point, index    
+
+def gdf_to_dict(gdf):
+
+    track0 = {}
+
+    track0["datetime"] = []
+    track0["x"]        = []
+    track0["y"]        = []
+    # Loop through columns in gdf
+    for column in gdf.items():
+        if column[0] == "datetime":
+            continue
+        elif column[0] == "geometry":
+            continue
+        else:
+            track0[column[0]] = []
+
+    # Now loop through the times
+    for index, row in gdf.iterrows():
+        # Convert to datetime
+        track0["datetime"].append(datetime.strptime(row.datetime, dateformat_module))
+        # Get x and y
+        track0["x"].append(row.geometry.x)
+        track0["y"].append(row.geometry.y)
+        # Loop through columns in gdf
+        for column in gdf.items():
+            if column[0] == "datetime":
+                continue
+            elif column[0] == "geometry":
+                continue
+            else:
+                track0[column[0]].append(row[column[0]])
+
+    # Convert to timestamp for interpolation
+    track0["timestamp"] = [date.timestamp() for date in track0["datetime"]]
+
+    return track0

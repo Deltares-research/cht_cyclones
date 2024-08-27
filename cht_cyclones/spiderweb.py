@@ -2,10 +2,17 @@ import xarray as xr
 import numpy as np
 import datetime
 
+import pandas as pd
+from shapely.geometry import LineString, MultiLineString, Point, mapping
+from geopandas import GeoDataFrame
+from pyproj import CRS
+
 knots_to_ms = float(0.51444)
 nm_to_km = float(1.852)
 nm_to_m = float(1.852) * 1000
 dateformat_module = "%Y%m%d %H%M%S"
+
+from .track import TropicalCycloneTrack
 
 class TropicalCycloneSpiderweb:
     def __init__(self):
@@ -262,3 +269,114 @@ class TropicalCycloneSpiderweb:
 
         # We are done here
         fid.close()
+
+    def get_track(self, config):
+
+        track = TropicalCycloneTrack()
+        r = self.ds["range"].values
+
+        # Loop through the time steps
+        for it in range(len(self.ds["time"])):
+
+            # Get the time
+            t = self.ds["time"].values[it]
+            # Convert numpy time to datetime
+            tc_time_string = np.datetime_as_string(t, unit="s")
+            tc_time_string = tc_time_string.replace("T", " ")
+            tc_time_string = tc_time_string.replace(":", "")
+            tc_time_string = tc_time_string.replace("-", "")
+
+            # Get the eye coordinates
+            lon = self.ds["longitude_eye"].values[it]
+            lat = self.ds["latitude_eye"].values[it]
+
+            # Obtain values
+            # Wind speed
+            vx = self.ds["wind_x"].values[it, :, :]
+            vy = self.ds["wind_y"].values[it, :, :]
+            vmag = np.sqrt(vx**2 + vy**2)
+            p = self.ds["pressure"].values[it, :, :]
+
+            # Interpolate to higher resolution radial bins
+            rmax = np.amax(r)
+            dr = 1000.0
+            rnew = np.arange(r[0], rmax + dr, dr)
+            # Loop over directional bins
+            vmagr = np.zeros((len(rnew), np.shape(vmag)[1]))
+            for i in range(np.shape(vmagr)[1]):
+                # Interpolate to new radii
+                vv = np.interp(rnew, r, vmag[:, i])
+                vmagr[:, i] = np.interp(rnew, r, vmag[:, i])
+
+            # Get the maximum wind speed
+            vmax = np.amax(vmagr)
+            # Get the minimum pressure
+            pc = np.amin(p) / 100
+            # Get radius of maximum wind
+            # r,theta indices where vmax is found            
+            idx = np.where(vmag == vmax)
+            rmw = 0.001 * r[idx[0][0]] / nm_to_km
+            vmax = vmax / knots_to_ms / config["wind_conversion_factor"]
+
+            # And now for the radii
+            # Take first column of vmag and append to the end
+            vmagkts = np.zeros((np.shape(vmagr)[0], np.shape(vmagr)[1] + 1))
+            vmagkts[:, :-1] = vmagr
+            vmagkts[:, -1] = vmagr[:, 0]
+            # Turn into knots and divide by 0.9
+            vmagkts = vmagkts / knots_to_ms / config["wind_conversion_factor"]
+
+            itheta0 = [0, 9, 18, 27]
+            itheta1 = [10, 19, 28, 37]
+            vv = [35.0, 50.0, 65.0, 100.0]
+            rr = np.zeros((4, 4)) - 999.0
+
+            for i in range(4):
+                vq = vmagkts[:, itheta0[i]:itheta1[i]]
+                for iv in range(len(vv)):
+                    # Find the first radius where the wind speed is greater than the threshold
+                    idx = np.where(vq > vv[iv])
+                    # If there are no values greater than the threshold, continue
+                    if len(idx[0]) == 0:
+                        continue
+                    irmax = np.max(idx[0])
+                    rr[i, iv] = 0.001 * rnew[irmax] / nm_to_km
+
+            # Make GeoDataFrame
+            point = Point(lon, lat)
+            gdf_point = GeoDataFrame(
+                {
+                    "datetime": [tc_time_string],
+                    "geometry": [point],
+                    "vmax": [vmax],
+                    "pc": [pc],
+                    "rmw": [rmw],
+                    "r35_ne": [rr[0, 0]],
+                    "r35_se": [rr[1, 0]],
+                    "r35_sw": [rr[2, 0]],
+                    "r35_nw": [rr[3, 0]],
+                    "r50_ne": [rr[0, 1]],
+                    "r50_se": [rr[1, 1]],
+                    "r50_sw": [rr[2, 1]],
+                    "r50_nw": [rr[3, 1]],
+                    "r65_ne": [rr[0, 2]],
+                    "r65_se": [rr[1, 2]],
+                    "r65_sw": [rr[2, 2]],
+                    "r65_nw": [rr[3, 2]],
+                    "r100_ne": [rr[0, 3]],
+                    "r100_se": [rr[1, 3]],
+                    "r100_sw": [rr[2, 3]],
+                    "r100_nw": [rr[3, 3]],
+                }
+            )
+
+            # Append self
+            track.gdf = pd.concat([track.gdf, gdf_point])
+
+        # Replace -999 with NaN
+        track.gdf = track.gdf.replace(-999, np.nan)
+        track.gdf = track.gdf.reset_index(drop=True)
+        track.gdf = track.gdf.set_crs(crs=CRS(4326), inplace=True)
+
+        return track
+

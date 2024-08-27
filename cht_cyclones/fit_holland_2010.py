@@ -6,7 +6,7 @@ from .wind_profiles import holland2010
 
 # Definition to fit Holland 2010 wind field
 def fit_wind_field_holland2010(
-    vmax, rmax, pc, vtreal, phit, pn, phi_spiral, lat, dpdt, obs, wrad
+    vmax, rmax, pc, vtreal, phit, pn, phi_spiral, lat, dpdt, obs
 ):
     # Discussion
     # shouldnt we have a switch to only calibrate vt and phi_a for observed radii
@@ -39,6 +39,7 @@ def fit_wind_field_holland2010(
         for iquad in range(np.size(obs["quadrants_radii"], 1)):
             if not np.isnan(obs["quadrants_radii"][irad, iquad]):
                 nobs = nobs + 1
+    wrad = obs["quadrants_speed"]            
 
     # just for plotting
     xx = np.zeros((len(phi), len(r)))
@@ -383,11 +384,14 @@ def compute_wind_field(
             dr = -90 + phi[iphi] - phi_spiral
         wind_to_direction_cart[iphi, :] = dr
 
+    vnorm = wind_speed / np.max(wind_speed)
+    vnorm = np.zeros(np.shape(wind_speed)) + 1.0
+
     ux = vt * np.cos((phit + phia) * np.pi / 180)
     uy = vt * np.sin((phit + phia) * np.pi / 180)
 
-    vx = wind_speed * np.cos(wind_to_direction_cart * np.pi / 180) + ux
-    vy = wind_speed * np.sin(wind_to_direction_cart * np.pi / 180) + uy
+    vx = wind_speed * np.cos(wind_to_direction_cart * np.pi / 180) + ux * vnorm
+    vy = wind_speed * np.sin(wind_to_direction_cart * np.pi / 180) + uy * vnorm
 
     wind_speed = np.sqrt(vx**2 + vy**2)
 

@@ -49,23 +49,8 @@ class TropicalCyclone:
     def __init__(self, name="no_name", track_file=None, config_file=None):
         """Initialize the Tropical Cyclone object"""
 
-        # Header        
+        # Name         
         self.name = name
-
-        # self.debug = 0  # do not show prints =0; change to 1 to show prints
-        # self.low_wind_speeds_cut_off = (
-        #     0.0  # float that is used to trim the track when making spiderwebs
-        # )
-        # self.extend_track = 0.0  # with certain amount of days
-        # self.reference_time = datetime(1970, 1, 1)  # used when writing out spiderweb
-
-        # New keywords to keep track of units in intensity, wind radii and coordinate system
-        self.unit_intensity = "knots"  # float
-        self.unit_radii = "nm"  # nm
-        self.EPSG = 4326
-
-        # Done
-        self.creation_time = datetime.now()
 
         # Configuration  
         self.config_file = config_file
@@ -77,7 +62,7 @@ class TropicalCyclone:
         self.track = TropicalCycloneTrack()
         self.track_file = track_file
         if track_file is not None:
-            self.read_track(track_file, "trk")
+            self.read_track(track_file)
 
         # Spiderweb wind field
         self.spiderweb = TropicalCycloneSpiderweb()
@@ -118,19 +103,39 @@ class TropicalCyclone:
         with open(config_file, "w") as file:            
             toml.dump(self.config, file)
 
-    def read_track(self, filename, format=None):
-        # Read track file
-        # Determine format
-        if format is None:
-           format = "trk"
-        self.track.read(filename, format)
+    def read_track(self, filename):
+        # Read track file (automatically determine format)
+        config = self.track.read(filename)
+        if config is not None:
+            # Old ddb_cyc format with config in it
+            self.set_default_config()
+            # Now loop over keys in cfg and update self.config
+            for key in config:
+                self.config[key] = config[key]
+
+    def write_track(self, filename, **kwargs):
+        # Write track file
+        kwargs["name"] = self.name
+        self.track.write(filename, **kwargs)
+
+    def extend_track(self, **kwargs):
+        """Extend the track"""
+        self.track.extend(**kwargs)
+
+    def shorten_track(self, **kwargs):
+        """Shorten the track"""
+        self.track.shorten(**kwargs)
+
+    def add_track_point(self, datetime, **kwargs):
+        """Add a track point"""
+        self.track.add_point(datetime, **kwargs)    
 
     def compute_metric_track(self):
         """Make a copy of the track and convert units to metric"""
         self.track_metric = copy.deepcopy(self.track)
         self.track_metric.convert_units_imperial_to_metric(self.config)
 
-    def compute_wind_field(self, filename=None, progress_bar=None, format="ascii"):
+    def compute_wind_field(self, filename=None, progress_bar=None, format="ascii", error_stats=False):
         """Compute the wind field using the specified wind profile"""
 
         # 1. First make a copy of self.track. Units in this copy will be converted to metric. Also missing values will be estimated.
@@ -138,7 +143,7 @@ class TropicalCyclone:
         self.compute_metric_track()
 
         # 3. Compute forward speed
-        self.track_metric.compute_forward_speed(self.config)
+        self.track_metric.compute_forward_speed()
 
         # 4. Estimate missing values
         self.track_metric.estimate_missing_values(self.config) 
@@ -170,7 +175,7 @@ class TropicalCyclone:
                     return
 
             # Copy radii data from vectors to matrix
-            quadrants_speed = np.array([35.0, 50.0, 65.0, 100.0]) * knots_to_ms
+            quadrants_speed = np.array([35.0, 50.0, 65.0, 100.0]) * knots_to_ms * self.config["wind_conversion_factor"]
             quadrants_radii = np.zeros((4, 4))
             quadrants_radii[0, 0] = self.track_metric.gdf.r35_ne[it]
             quadrants_radii[0, 1] = self.track_metric.gdf.r35_se[it]
@@ -250,7 +255,6 @@ class TropicalCyclone:
                     obs = {}
                     obs["quadrants_radii"] = quadrants_radii
                     obs["quadrants_speed"] = quadrants_speed
-                    wrad = np.array([35, 50, 65, 100]) * knots_to_ms
                     [xn, vtcor, phia] = fit_wind_field_holland2010(
                         vmax,
                         rmax,
@@ -262,7 +266,6 @@ class TropicalCyclone:
                         latitude,
                         dpcdt,
                         obs,
-                        wrad,
                     )
 
             if self.config["wind_profile"] == "holland2008":
@@ -295,10 +298,12 @@ class TropicalCyclone:
                 air_pressure[:, iphi] = 100 * pr
 
             # Wind speed with asymmetry
+            # vnorm = wind_speed / np.max(wind_speed)
+            vnorm = np.zeros(np.shape(wind_speed)) + 1.0
             u_prop = vtcor * np.cos((phit + phia) * np.pi / 180)
             v_prop = vtcor * np.sin((phit + phia) * np.pi / 180)
-            wind_x = wind_speed * np.cos(wind_to_direction_cart * np.pi / 180) + u_prop
-            wind_y = wind_speed * np.sin(wind_to_direction_cart * np.pi / 180) + v_prop
+            wind_x = wind_speed * np.cos(wind_to_direction_cart * np.pi / 180) + u_prop * vnorm
+            wind_y = wind_speed * np.sin(wind_to_direction_cart * np.pi / 180) + v_prop * vnorm
 
             # Rainfall (if required)
             if self.config["include_rainfall"] == True:
@@ -324,6 +329,7 @@ class TropicalCyclone:
             if self.config["include_rainfall"]:
                 self.spiderweb.ds["precipitation"].values[it, :, :] = precipitation
 
+
             # # Scale wind speeds back to ensure we always reach vmax
             # missing_factor = vmax / np.max(wind_speed)
             # wind_speed = wind_speed * missing_factor
@@ -335,6 +341,66 @@ class TropicalCyclone:
                                  background_pressure=self.config["background_pressure"],
                                  tref=self.config["tref"],
                                  include_rainfall=self.config["include_rainfall"])
+
+        # If error stats are required
+        if error_stats:
+            # Compute the error stats
+            error_stats = self.compute_track_error_stats()
+
+
+    def get_track_from_spiderweb(self, replace=False):
+        """Get the track from the spiderweb."""
+        track = self.spiderweb.get_track(self.config)
+        if replace:
+            self.track = track
+        return track    
+
+    def compute_track_error_stats(self):
+        """Compute error statistics"""
+        resulting_track = self.spiderweb.get_track(self.config)
+        r_best   = np.empty((len(resulting_track.gdf), 4, 4)) * np.nan
+        r_result = np.empty((len(resulting_track.gdf), 4, 4)) * np.nan
+        r_diff   = np.empty((len(resulting_track.gdf), 4, 4)) * np.nan
+        r_diff_rel  = np.empty((len(resulting_track.gdf), 4, 4)) * np.nan
+        r_diff_radius_mean = np.zeros((len(resulting_track.gdf), 4))
+        r_diff_radius_rel_mean = np.zeros((len(resulting_track.gdf), 4))
+        r_diff_mean = np.zeros((len(resulting_track.gdf)))
+        r_diff_rel_mean = np.zeros((len(resulting_track.gdf)))
+        rstr = ["r35", "r50", "r65", "r100"]
+        vstr = ["ne", "se", "sw", "nw"]
+        # Loop through time
+        for it in range(len(resulting_track.gdf)):
+            print("Time step : " + str(it))
+            for ir in range(4):
+                iok = 0
+                ibst = 0
+                ires = 0
+                for iv in range(4):
+                    r_best[it, ir, iv]   = self.track.gdf[rstr[ir] + "_" + vstr[iv]][it]
+                    r_result[it, ir, iv] = resulting_track.gdf[rstr[ir] + "_" + vstr[iv]][it]
+                    # Compute the error statistics for this wind speed
+                    r_diff[it, ir, iv] = r_result[it, ir, iv] - r_best[it, ir, iv]
+                    r_diff_rel[it, ir, iv] = 100 * (r_result[it, ir, iv] - r_best[it, ir, iv]) / r_best[it, ir, iv]
+                    if not np.isnan(r_best[it, ir, iv]) and not np.isnan(r_result[it, ir, iv]):
+                        iok += 1
+                    if not np.isnan(r_best[it, ir, iv]) and np.isnan(r_result[it, ir, iv]):
+                        ibst += 1
+                    if np.isnan(r_best[it, ir, iv]) and not np.isnan(r_result[it, ir, iv]):
+                        ires += 1    
+                r_diff_radius_mean[it, ir] = np.nanmean(r_diff[it, ir, :])
+                r_diff_radius_rel_mean[it, ir] = np.nanmean(r_diff_rel[it, ir, :])
+
+#                print("Mean error for " + rstr[ir] + " : " + '{0:.1f}'.format(r_diff_radius_mean[it, ir]) + " NM (" + '{0:.0f}'.format(r_diff_radius_rel_mean[it, ir]) + " %)" + "    - " + str(iok) + " OK, " + str(ibst) + " Best, " + str(ires) + " Result")
+                print("Mean error for " + rstr[ir] + " : " + '{0:.1f}'.format(r_diff_radius_mean[it, ir]) + " NM (" + '{0:.0f}'.format(r_diff_radius_rel_mean[it, ir]) + " %)")
+
+            r_diff_mean[it] = np.nanmean(r_diff_radius_mean[it, :])
+            r_diff_rel_mean[it] = np.nanmean(r_diff_radius_rel_mean[it, :])
+
+            print("Mean error for all : " + '{0:.1f}'.format(r_diff_mean[it]) + " NM (" + '{0:.0f}'.format(r_diff_rel_mean[it]) + " %)")
+
+
+                    
+
 
     def make_ensemble(self, **kwargs):
         """Make ensemble"""

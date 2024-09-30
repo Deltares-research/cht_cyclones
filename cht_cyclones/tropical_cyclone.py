@@ -62,7 +62,11 @@ class TropicalCyclone:
         self.track = TropicalCycloneTrack()
         self.track_file = track_file
         if track_file is not None:
-            self.read_track(track_file)
+            # Track file can be a string or a list of strings
+            if isinstance(track_file, list):
+                self.read_track_files_and_merge(track_file)
+            else:
+                self.read_track(track_file)
 
         # Spiderweb wind field
         self.spiderweb = TropicalCycloneSpiderweb()
@@ -113,10 +117,26 @@ class TropicalCyclone:
             for key in config:
                 self.config[key] = config[key]
 
+    def read_track_files_and_merge(self, track_file_list):
+        # Read track files and merge them
+        self.track = TropicalCycloneTrack()
+        for track_file in track_file_list:
+            track1 = TropicalCycloneTrack()
+            track1.read(track_file)
+            self.track.add(track1)
+
+    # def resample_track(self, dt, method="spline"):
+    #     """Resample the track to a new time step"""
+    #     self.track.resample(dt, method=method)        
+
     def write_track(self, filename, **kwargs):
         # Write track file
         kwargs["name"] = self.name
         self.track.write(filename, **kwargs)
+
+    def write_spiderweb(self, filename, **kwargs):
+        # Write the spiderweb wind field to file
+        self.spiderweb.write(filename, **kwargs) 
 
     def extend_track(self, **kwargs):
         """Extend the track"""

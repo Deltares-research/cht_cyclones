@@ -496,7 +496,7 @@ class TropicalCycloneTrack:
             gdf = pd.concat([gdf, self.gdf.iloc[[0]]], ignore_index=True)
             gdf.datetime[it] = (t0 + it * dt).strftime(dateformat_module)
 
-        gdf = interpolate_track(self.gdf, gdf, method=method)
+        self.gdf = interpolate_track(self.gdf, gdf, method=method)
 
         return gdf
 
@@ -562,10 +562,31 @@ class TropicalCycloneTrack:
                     self.gdf = self.gdf.reset_index(drop=True)
                     break
 
+    def add(self, track1):
+        """Add another track to the current track"""
+
+        # If self is empty, just copy track1
+        if len(self.gdf) == 0:
+            self.gdf = track1.gdf
+            return
+
+        # Get first time of track1
+        t0 = datetime.strptime(track1.gdf.datetime[0], dateformat_module)
+
+        # Remove all points in self that are at or after t0
+        for it, row in self.gdf.iterrows():
+            t = datetime.strptime(row.datetime, dateformat_module)
+            if t >= t0:
+                self.remove_point(time=t)
+
+        # Concatenate the two tracks
+        self.gdf = pd.concat([self.gdf, track1.gdf], ignore_index=True).reset_index(drop=True)
+
+
     def to_gdf(self, filename=None):
         """Make track GeoDataFrame and optionally write to file"""
 
-        categories = {64.0: "TS", 83.0: "1", 96.0: "2", 113.0: "3", 137.0: "4"}
+        categories = {33.0: "TD", 64.0: "TS", 83.0: "1", 96.0: "2", 113.0: "3", 137.0: "4"}
 
         features = []
         points = []
@@ -580,6 +601,9 @@ class TropicalCycloneTrack:
             point = Point((self.gdf.geometry.x[ip], self.gdf.geometry.y[ip]))
             tmptime = datetime.strptime(self.gdf.datetime[ip], "%Y%m%d %H%M%S")
             vmax = self.gdf.vmax[ip]
+            # if vmax is NaN, set vmax to 1.0
+            if np.isnan(vmax):
+                vmax = 1.0
             for threshold, cat in categories.items():
                 if vmax < threshold:
                     break
@@ -615,7 +639,7 @@ class TropicalCycloneTrack:
             elif ext == ".geojson":
                 gdf.to_file(filename, driver="GeoJSON")
             elif ext == ".js":
-                gdf_to_geojson_js(gdf, filename, varname="track_ensemble")   
+                gdf_to_geojson_js(gdf, filename, varname="track_data")   
 
         return gdf    
 

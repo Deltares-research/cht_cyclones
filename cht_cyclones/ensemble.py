@@ -27,6 +27,7 @@ class TropicalCycloneEnsemble:
                  number_of_realizations=10,
                  dt=3,
                  tstart=None,
+                 tend=None,
                  track_path=None,
                  spw_path=None,
                  format="ascii"):
@@ -69,15 +70,18 @@ class TropicalCycloneEnsemble:
         self.tropical_cyclone.track.gdf.loc[:,"wind_scale_factor"] = pd.Series(np.zeros(len(self.tropical_cyclone.track.gdf)) + 1.0,
                                                                                index=self.tropical_cyclone.track.gdf.index)
 
-        # Make sure the metric track is computed
-        self.tropical_cyclone.compute_metric_track()
-
         if tstart is None:
             self.tstart = datetime.strptime(
-                self.tropical_cyclone.track_metric.gdf.datetime[0], dateformat_module
+                self.tropical_cyclone.track.gdf.datetime[0], dateformat_module
             )
         else:
             self.tstart = tstart
+
+        if tend is not None:
+            self.tropical_cyclone.track.shorten(tend=tend)             
+
+        # Make sure the metric track is computed
+        self.tropical_cyclone.compute_metric_track()
 
         # The actual ensemble members
         self.members = []
@@ -107,7 +111,7 @@ class TropicalCycloneEnsemble:
         # Create new track with constant time intervals
         # Resample the track to hourly values
         equidistant_best_track = copy.copy(self.tropical_cyclone.track_metric)
-        equidistant_best_track.gdf = equidistant_best_track.resample(self.dt)
+        equidistant_best_track.resample(self.dt)
 
         for i in range(0, self.number_of_realizations):
 
@@ -183,7 +187,7 @@ class TropicalCycloneEnsemble:
 
     def to_gdf(self,
                option="tracks",
-               var_name="track_ensemble",
+               varname="track_ensemble",
                filename=None,
                buffer=300000.0,
                only_forecast=True):
@@ -210,7 +214,7 @@ class TropicalCycloneEnsemble:
             elif ext == ".geojson":
                 gdf.to_file(filename, driver="GeoJSON")
             elif ext == ".js":
-                gdf_to_geojson_js(gdf, filename, varname="track_ensemble")   
+                gdf_to_geojson_js(gdf, filename, varname=varname)
 
         return gdf    
 
@@ -230,7 +234,7 @@ class TropicalCycloneEnsemble:
         gdf = gpd.GeoDataFrame({"geometry": geometries, "id": ids})
         return gdf
 
-    def outline_to_gdf(self, buffer, only_forecast):
+    def outline_to_gdf(self, buffer, only_forecast=True):
         """Generate GeoDataFrame with outline polygon of all ensemble members"""
         pols = []
         for member in self.members:

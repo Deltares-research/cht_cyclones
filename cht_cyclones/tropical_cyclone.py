@@ -43,6 +43,11 @@ nm_to_km = float(1.852)
 nm_to_m = float(1.852) * 1000
 pd.options.mode.chained_assignment = None
 
+# np.nan is the way to go and is equivalent to deprecated np.NaN/np.NP_NAN: https://numpy.org/doc/1.26/reference/constants.html#numpy.NaN
+if np.__version__ >= "1.20.0":
+    NP_NAN = np.nan
+else:
+    NP_NAN = np.NaN
 
 # Classes of the Tropical Cyclone module
 class TropicalCyclone:
@@ -892,85 +897,85 @@ class TropicalCyclone:
                 if self.track.R35_NE[it] > 0:
                     self.track.R35_NE[it] = self.track.R35_NE[it] * nm_to_km
                 else:
-                    self.track.R35_NE[it] = np.nan
+                    self.track.R35_NE[it] = NP_NAN
 
                 if self.track.R35_SE[it] > 0:
                     self.track.R35_SE[it] = self.track.R35_SE[it] * nm_to_km
                 else:
-                    self.track.R35_SE[it] = np.nan
+                    self.track.R35_SE[it] = NP_NAN
 
                 if self.track.R35_SW[it] > 0:
                     self.track.R35_SW[it] = self.track.R35_SW[it] * nm_to_km
                 else:
-                    self.track.R35_SW[it] = np.nan
+                    self.track.R35_SW[it] = NP_NAN
 
                 if self.track.R35_NW[it] > 0:
                     self.track.R35_NW[it] = self.track.R35_NW[it] * nm_to_km
                 else:
-                    self.track.R35_NW[it] = np.nan
+                    self.track.R35_NW[it] = NP_NAN
 
                 # R50
                 if self.track.R50_NE[it] > 0:
                     self.track.R50_NE[it] = self.track.R50_NE[it] * nm_to_km
                 else:
-                    self.track.R50_NE[it] = np.nan
+                    self.track.R50_NE[it] = NP_NAN
 
                 if self.track.R50_SE[it] > 0:
                     self.track.R50_SE[it] = self.track.R50_SE[it] * nm_to_km
                 else:
-                    self.track.R50_SE[it] = np.nan
+                    self.track.R50_SE[it] = NP_NAN
 
                 if self.track.R50_SW[it] > 0:
                     self.track.R50_SW[it] = self.track.R50_SW[it] * nm_to_km
                 else:
-                    self.track.R50_SW[it] = np.nan
+                    self.track.R50_SW[it] = NP_NAN
 
                 if self.track.R50_NW[it] > 0:
                     self.track.R50_NW[it] = self.track.R50_NW[it] * nm_to_km
                 else:
-                    self.track.R50_NW[it] = np.nan
+                    self.track.R50_NW[it] = NP_NAN
 
                 # R65
                 if self.track.R65_NE[it] > 0:
                     self.track.R65_NE[it] = self.track.R65_NE[it] * nm_to_km
                 else:
-                    self.track.R65_NE[it] = np.nan
+                    self.track.R65_NE[it] = NP_NAN
 
                 if self.track.R65_SE[it] > 0:
                     self.track.R65_SE[it] = self.track.R65_SE[it] * nm_to_km
                 else:
-                    self.track.R65_SE[it] = np.nan
+                    self.track.R65_SE[it] = NP_NAN
 
                 if self.track.R65_SW[it] > 0:
                     self.track.R65_SW[it] = self.track.R65_SW[it] * nm_to_km
                 else:
-                    self.track.R65_SW[it] = np.nan
+                    self.track.R65_SW[it] = NP_NAN
 
                 if self.track.R65_NW[it] > 0:
                     self.track.R65_NW[it] = self.track.R65_NW[it] * nm_to_km
                 else:
-                    self.track.R65_NW[it] = np.nan
+                    self.track.R65_NW[it] = NP_NAN
 
                 # R100
                 if self.track.R100_NE[it] > 0:
                     self.track.R100_NE[it] = self.track.R100_NE[it] * nm_to_km
                 else:
-                    self.track.R100_NE[it] = np.nan
+                    self.track.R100_NE[it] = NP_NAN
 
                 if self.track.R100_SE[it] > 0:
                     self.track.R100_SE[it] = self.track.R100_SE[it] * nm_to_km
                 else:
-                    self.track.R100_SE[it] = np.nan
+                    self.track.R100_SE[it] = NP_NAN
 
                 if self.track.R100_SW[it] > 0:
                     self.track.R100_SW[it] = self.track.R100_SW[it] * nm_to_km
                 else:
-                    self.track.R100_SW[it] = np.nan
+                    self.track.R100_SW[it] = NP_NAN
 
                 if self.track.R100_NW[it] > 0:
                     self.track.R100_NW[it] = self.track.R100_NW[it] * nm_to_km
                 else:
-                    self.track.R100_NW[it] = np.nan
+                    self.track.R100_NW[it] = NP_NAN
 
             # Done, so set variable
             self.unit_intensity = "ms"
@@ -1096,14 +1101,14 @@ class TropicalCyclone:
     # 4. account_for_forward_speed
     def account_for_forward_speed(self):
         # Assign variables to geopandas dataframe
-        nan_list = [np.nan for _ in range(len(self.track))]
+        nan_list = [NP_NAN for _ in range(len(self.track))]
         self.track = self.track.assign(vtx=nan_list)
         self.track = self.track.assign(vty=nan_list)
         self.track = self.track.assign(dpcdt=nan_list)
         self.track = self.track.assign(vmax_rel=nan_list)
 
         # Same for 4 quadrants and 4 radii
-        nan_array = [np.full((4, 4), np.nan) for i in range(len(self.track))]
+        nan_array = [np.full((4, 4), NP_NAN) for i in range(len(self.track))]
         self.track = self.track.assign(quadrants_radii=nan_array)
 
         speeds = (
@@ -1812,15 +1817,15 @@ class TropicalCyclone:
             precipitation_var.units = "mm/hr"
 
         # Assign variables here
-        time_data = np.full(ntime, np.nan)
+        time_data = np.full(ntime, NP_NAN)
         range_data = np.linspace(0, self.spiderweb_radius * 1000, nrows)  # in meters
         azimuth_data = np.linspace(0, 360, ncols + 1)
-        longitude_eye_data = np.full(ntime, np.nan)
-        latitude_eye_data = np.full(ntime, np.nan)
-        pressure_data = np.full((ntime, nrows, ncols), np.nan)
-        precipitation_data = np.full((ntime, nrows, ncols), np.nan)
-        wind_x_data = np.full((ntime, nrows, ncols), np.nan)
-        wind_y_data = np.full((ntime, nrows, ncols), np.nan)
+        longitude_eye_data = np.full(ntime, NP_NAN)
+        latitude_eye_data = np.full(ntime, NP_NAN)
+        pressure_data = np.full((ntime, nrows, ncols), NP_NAN)
+        precipitation_data = np.full((ntime, nrows, ncols), NP_NAN)
+        wind_x_data = np.full((ntime, nrows, ncols), NP_NAN)
+        wind_y_data = np.full((ntime, nrows, ncols), NP_NAN)
 
         # Loop over time
         for it in range(len(spiderweb)):
@@ -3138,7 +3143,7 @@ def compute_mean_error(r, w, obs, wrad):
             if not np.isnan(obs["quadrants_radii"][irad, iquad]):
                 err[iquad, irad] = vrad - wrad[irad]
             else:
-                err[iquad, irad] = np.NAN
+                err[iquad, irad] = NP_NAN
 
     # Get error values
     mask = ~np.isnan(err)  # Create the mask

@@ -88,94 +88,94 @@ class TropicalCycloneTrack:
                 if self.gdf.vmax[it] > 0.0:
                     self.gdf.vmax[it] = self.gdf.vmax[it] * knots_to_ms * config["wind_conversion_factor"]
                 else:
-                    self.gdf.vmax[it] = np.NaN    
+                    self.gdf.vmax[it] = np.nan    
                 if self.gdf.rmw[it] > 0.0:
                     self.gdf.rmw[it] = self.gdf.rmw[it] * nm_to_km
                 else:
-                    self.gdf.rmw[it] = np.NaN    
+                    self.gdf.rmw[it] = np.nan    
                 # R35
                 if self.gdf.r35_ne[it] > 0.0:
                     self.gdf.r35_ne[it] = self.gdf.r35_ne[it] * nm_to_km
                 else:
-                    self.gdf.r35_ne[it] = np.NaN
+                    self.gdf.r35_ne[it] = np.nan
 
                 if self.gdf.r35_se[it] > 0.0:
                     self.gdf.r35_se[it] = self.gdf.r35_se[it] * nm_to_km
                 else:
-                    self.gdf.r35_se[it] = np.NaN
+                    self.gdf.r35_se[it] = np.nan
 
                 if self.gdf.r35_sw[it] > 0.0:
                     self.gdf.r35_sw[it] = self.gdf.r35_sw[it] * nm_to_km
                 else:
-                    self.gdf.r35_sw[it] = np.NaN
+                    self.gdf.r35_sw[it] = np.nan
 
                 if self.gdf.r35_nw[it] > 0.0:
                     self.gdf.r35_nw[it] = self.gdf.r35_nw[it] * nm_to_km
                 else:
-                    self.gdf.r35_nw[it] = np.NaN
+                    self.gdf.r35_nw[it] = np.nan
 
                 # r50
                 if self.gdf.r50_ne[it] > 0.0:
                     self.gdf.r50_ne[it] = self.gdf.r50_ne[it] * nm_to_km
                 else:
-                    self.gdf.r50_ne[it] = np.NaN
+                    self.gdf.r50_ne[it] = np.nan
 
                 if self.gdf.r50_se[it] > 0.0:
                     self.gdf.r50_se[it] = self.gdf.r50_se[it] * nm_to_km
                 else:
-                    self.gdf.r50_se[it] = np.NaN
+                    self.gdf.r50_se[it] = np.nan
 
                 if self.gdf.r50_sw[it] > 0.0:
                     self.gdf.r50_sw[it] = self.gdf.r50_sw[it] * nm_to_km
                 else:
-                    self.gdf.r50_sw[it] = np.NaN
+                    self.gdf.r50_sw[it] = np.nan
 
                 if self.gdf.r50_nw[it] > 0.0:
                     self.gdf.r50_nw[it] = self.gdf.r50_nw[it] * nm_to_km
                 else:
-                    self.gdf.r50_nw[it] = np.NaN
+                    self.gdf.r50_nw[it] = np.nan
 
                 # r65
                 if self.gdf.r65_ne[it] > 0.0:
                     self.gdf.r65_ne[it] = self.gdf.r65_ne[it] * nm_to_km
                 else:
-                    self.gdf.r65_ne[it] = np.NaN
+                    self.gdf.r65_ne[it] = np.nan
 
                 if self.gdf.r65_se[it] > 0.0:
                     self.gdf.r65_se[it] = self.gdf.r65_se[it] * nm_to_km
                 else:
-                    self.gdf.r65_se[it] = np.NaN
+                    self.gdf.r65_se[it] = np.nan
 
                 if self.gdf.r65_sw[it] > 0.0:
                     self.gdf.r65_sw[it] = self.gdf.r65_sw[it] * nm_to_km
                 else:
-                    self.gdf.r65_sw[it] = np.NaN
+                    self.gdf.r65_sw[it] = np.nan
 
                 if self.gdf.r65_nw[it] > 0.0:
                     self.gdf.r65_nw[it] = self.gdf.r65_nw[it] * nm_to_km
                 else:
-                    self.gdf.r65_nw[it] = np.NaN
+                    self.gdf.r65_nw[it] = np.nan
 
                 # r100
                 if self.gdf.r100_ne[it] > 0.0:
                     self.gdf.r100_ne[it] = self.gdf.r100_ne[it] * nm_to_km
                 else:
-                    self.gdf.r100_ne[it] = np.NaN
+                    self.gdf.r100_ne[it] = np.nan
 
                 if self.gdf.r100_se[it] > 0.0:
                     self.gdf.r100_se[it] = self.gdf.r100_se[it] * nm_to_km
                 else:
-                    self.gdf.r100_se[it] = np.NaN
+                    self.gdf.r100_se[it] = np.nan
 
                 if self.gdf.r100_sw[it] > 0.0:
                     self.gdf.r100_sw[it] = self.gdf.r100_sw[it] * nm_to_km
                 else:
-                    self.gdf.r100_sw[it] = np.NaN
+                    self.gdf.r100_sw[it] = np.nan
 
                 if self.gdf.r100_nw[it] > 0.0:
                     self.gdf.r100_nw[it] = self.gdf.r100_nw[it] * nm_to_km
                 else:
-                    self.gdf.r100_nw[it] = np.NaN
+                    self.gdf.r100_nw[it] = np.nan
 
             # Done, so set variable
             self.unit_intensity = "ms"
@@ -533,7 +533,7 @@ class TropicalCycloneTrack:
             point = Point(lon, lat)
             gdf_point["geometry"] = [point]
 
-        gdf_point.replace(-999.0, np.NaN, inplace=True)
+        gdf_point.replace(-999.0, np.nan, inplace=True)
         crs = self.gdf.crs
 
         if index == 0:
@@ -970,25 +970,25 @@ def read_trk(filename):
                 gdf_point = GeoDataFrame()
                 gdf_point["geometry"] = [Point(x, y)]  # Assign the new geometry
                 gdf_point["datetime"] = newtime.astype("O").strftime("%Y%m%d %H%M%S")
-                gdf_point["vmax"]   = np.NaN
-                gdf_point["pc"]     = np.NaN
-                gdf_point["rmw"]    = np.NaN
-                gdf_point["r35_ne"] = np.NaN
-                gdf_point["r35_se"] = np.NaN
-                gdf_point["r35_sw"] = np.NaN
-                gdf_point["r35_nw"] = np.NaN
-                gdf_point["r50_ne"] = np.NaN
-                gdf_point["r50_se"] = np.NaN
-                gdf_point["r50_sw"] = np.NaN
-                gdf_point["r50_nw"] = np.NaN
-                gdf_point["r65_ne"] = np.NaN
-                gdf_point["r65_se"] = np.NaN
-                gdf_point["r65_sw"] = np.NaN
-                gdf_point["r65_nw"] = np.NaN
-                gdf_point["r100_ne"] = np.NaN
-                gdf_point["r100_se"] = np.NaN
-                gdf_point["r100_sw"] = np.NaN
-                gdf_point["r100_nw"] = np.NaN
+                gdf_point["vmax"]   = np.nan
+                gdf_point["pc"]     = np.nan
+                gdf_point["rmw"]    = np.nan
+                gdf_point["r35_ne"] = np.nan
+                gdf_point["r35_se"] = np.nan
+                gdf_point["r35_sw"] = np.nan
+                gdf_point["r35_nw"] = np.nan
+                gdf_point["r50_ne"] = np.nan
+                gdf_point["r50_se"] = np.nan
+                gdf_point["r50_sw"] = np.nan
+                gdf_point["r50_nw"] = np.nan
+                gdf_point["r65_ne"] = np.nan
+                gdf_point["r65_se"] = np.nan
+                gdf_point["r65_sw"] = np.nan
+                gdf_point["r65_nw"] = np.nan
+                gdf_point["r100_ne"] = np.nan
+                gdf_point["r100_se"] = np.nan
+                gdf_point["r100_sw"] = np.nan
+                gdf_point["r100_nw"] = np.nan
             else:
                 new_point = False
                     

@@ -418,10 +418,6 @@ class TropicalCyclone:
 
             print("Mean error for all : " + '{0:.1f}'.format(r_diff_mean[it]) + " NM (" + '{0:.0f}'.format(r_diff_rel_mean[it]) + " %)")
 
-
-                    
-
-
     def make_ensemble(self, **kwargs):
         """Make ensemble"""
         ensemble = TropicalCycloneEnsemble(self, **kwargs)        
@@ -470,6 +466,109 @@ class TropicalCyclone:
                                  background_pressure=self.config["background_pressure"],
                                  tref=self.config["tref"],
                                  include_rainfall=self.config["include_rainfall"])
+
+
+    def get_wind_field_from_coamps(self, coamps_path, coamps_cycle, filename=None, format="ascii"):
+        """Get the wind field from coamps-tc"""
+
+        import xarray as xr        
+        from cht_utils.misc_tools import interp2
+
+        # # Track has already been defined
+        self.spiderweb.initialize_grid(self.track,
+                                       self.config["nr_radial_bins"],
+                                       self.config["nr_directional_bins"],
+                                       self.config["spiderweb_radius"] * 1000) # Creates the spiderweb arrays
+
+        # 6. Loop over time steps in the track
+        for it in range(len(self.track.gdf)):
+
+            # Get time
+            tt = datetime.strptime(self.track.gdf.datetime[it], dateformat_module)
+
+            # Get spiderweb grid coordinates
+            xx = self.spiderweb.ds["lon"].values[it, :, :]
+            yy = self.spiderweb.ds["lat"].values[it, :, :]
+
+            # Convert coamps_cycle to time
+            coamps_cycle_time = datetime.strptime(coamps_cycle, "%Y%m%d%H")
+
+            # Get the time difference between tt and coamps_cycle_time in hours
+            tau = int(((tt - coamps_cycle_time).total_seconds() / 3600))
+            taustr = "tau" + str(tau).zfill(3)
+
+            print("Time step : " + str(it) + " - " + str(tt) + " - " + taustr)
+
+            # First do high-res d03
+
+            coamps_file = os.path.join(coamps_path, "coamps-tc_d03_" + coamps_cycle + "_" + taustr + ".nc")
+
+            if not os.path.exists(coamps_file):
+                print("File does not exist : " + coamps_file)
+                continue
+                                       
+            ds = xr.open_dataset(coamps_file)
+            # ds = ds.sel(lon=slice(xx.min(), xx.max()), lat=slice(yy.min(), yy.max()))
+
+            lon = ds["lon"].values
+            lat = ds["lat"].values
+            uu = ds["uuwind"].values
+            vv = ds["vvwind"].values
+            pp = ds["slpres"].values * 100
+            rr = ds["precip"].values
+
+            lon = lon[0, :] - 360.0
+            lat = lat[:, 0]
+
+            # Get the data at the specified time (really should start doing this with xarray!)
+            self.spiderweb.ds["wind_x"].values[it, :, :] = interp2(lon, lat, uu, xx, yy)
+            self.spiderweb.ds["wind_y"].values[it, :, :] = interp2(lon, lat, vv, xx, yy)
+            self.spiderweb.ds["pressure"].values[it, :, :] = interp2(lon, lat, pp, xx, yy)
+            self.spiderweb.ds["precipitation"].values[it, :, :] = interp2(lon, lat, rr, xx, yy)
+
+            # Now do low-res d02
+            # But only where we have missing values
+
+            coamps_file = os.path.join(coamps_path, "coamps-tc_d02_" + coamps_cycle + "_" + taustr + ".nc")
+
+            if not os.path.exists(coamps_file):
+                print("File does not exist : " + coamps_file)
+                continue
+
+            ds = xr.open_dataset(coamps_file)
+
+            lon = ds["lon"].values
+            lat = ds["lat"].values
+            uu = ds["uuwind"].values
+            vv = ds["vvwind"].values
+            pp = ds["slpres"].values * 100
+            rr = ds["precip"].values
+
+            lon = lon[0, :] - 360.0
+            lat = lat[:, 0]
+
+            # Get the data at the specified time (really should start doing this with xarray!)
+            self.spiderweb.ds["wind_x"].values[it, :, :][np.isnan(self.spiderweb.ds["wind_x"].values[it, :, :])] = interp2(lon, lat, uu, xx, yy)[np.isnan(self.spiderweb.ds["wind_x"].values[it, :, :])]
+            self.spiderweb.ds["wind_y"].values[it, :, :][np.isnan(self.spiderweb.ds["wind_y"].values[it, :, :])] = interp2(lon, lat, vv, xx, yy)[np.isnan(self.spiderweb.ds["wind_y"].values[it, :, :])]
+            self.spiderweb.ds["pressure"].values[it, :, :][np.isnan(self.spiderweb.ds["pressure"].values[it, :, :])] = interp2(lon, lat, pp, xx, yy)[np.isnan(self.spiderweb.ds["pressure"].values[it, :, :])]
+            self.spiderweb.ds["precipitation"].values[it, :, :][np.isnan(self.spiderweb.ds["precipitation"].values[it, :, :])] = interp2(lon, lat, rr, xx, yy)[np.isnan(self.spiderweb.ds["precipitation"].values[it, :, :])]
+
+        # Replace nan with 0.0 in wind field
+        self.spiderweb.ds["wind_x"].values[np.isnan(self.spiderweb.ds["wind_x"].values)] = 0.0
+        self.spiderweb.ds["wind_y"].values[np.isnan(self.spiderweb.ds["wind_y"].values)] = 0.0  
+        # Replace nan with background pressure        
+        self.spiderweb.ds["pressure"].values[np.isnan(self.spiderweb.ds["pressure"].values)] = self.config["background_pressure"]
+        # Replace nan with 0.0 in precipitation
+        self.spiderweb.ds["precipitation"].values[np.isnan(self.spiderweb.ds["precipitation"].values)] = 0.0
+
+        # Default is spiderweb in ascii
+        if filename is not None:
+            self.spiderweb.write(filename,
+                                 format=format,
+                                 background_pressure=self.config["background_pressure"],
+                                 tref=self.config["tref"],
+                                 include_rainfall=self.config["include_rainfall"])
+
 
     def to_gdf(self, filename=None):
         """Convert track to GeoDataFrame, and optionally write to file."""

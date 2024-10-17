@@ -19,8 +19,14 @@ class TropicalCycloneSpiderweb:
         self.ds = xr.Dataset()
         self.ds.attrs["description"] = "Tropical cyclone spiderweb by cht_cyclones"
 
-    def read(self, filename, fmt):
-        pass
+    def read(self, filename):
+        # Read spw file
+        # Get file extension
+        fmt = filename.split(".")[-1]        
+        if fmt == "nc":
+            self.ds = xr.open_dataset(filename)
+        elif fmt == "spw":
+            self.read_spiderweb_ascii(filename)
 
     def initialize_grid(self, track, nrad, ndir, spiderweb_radius):
         # Make Xarray dataset
@@ -131,6 +137,127 @@ class TropicalCycloneSpiderweb:
                                        tref=tref,
                                        merge_frac=merge_frac,
                                        include_rainfall=include_rainfall)
+
+    def read_spiderweb_ascii(self, filename):
+        # Read in ASCII
+
+        # Open file
+        fid = open(filename, "r")
+
+        # First loop through all lines and count number of times that a line starts with "TIME"
+        n_times = 0
+        while True:
+            line = fid.readline()
+            if not line:
+                # End of file
+                break
+            if line.split()[0] == "n_rows":
+                n_rows = int(line.split()[2])
+            if line.split()[0] == "n_cols":
+                n_cols = int(line.split()[2])
+            if line.split()[0] == "n_quantity":
+                n_quantity = int(line.split()[2])    
+            if line.split()[0] == "TIME":
+                n_times += 1
+        # Rewind file
+        fid.seek(0)
+
+        # Initialize arrays
+        t = np.zeros(n_times, dtype="datetime64[s]")
+        lon = np.zeros(n_times)
+        lat = np.zeros(n_times)
+
+        # Now find the number of rows and columns
+        n_rows = 0
+        n_cols = 0
+        for i in range(10):
+            line = fid.readline()
+            if line.split()[0] == "n_rows":
+                n_rows = int(line.split()[2])
+            if line.split()[0] == "n_cols":
+                n_cols = int(line.split()[2])
+        # Rewind file
+        fid.seek(0)
+
+
+        # Read header information
+        vsn = fid.readline().split()[2]
+        filetype = fid.readline().split()[2]
+        nodata_value = float(fid.readline().split()[2])
+        n_cols = int(fid.readline().split()[2])
+        n_rows = int(fid.readline().split()[2])
+        grid_unit = fid.readline().split()[2]
+        spiderweb_radius = float(fid.readline().split()[2])
+        spw_rad_unit = fid.readline().split()[2]
+        spw_merge_frac = float(fid.readline().split()[2])
+        n_quantity = int(fid.readline().split()[2])
+        quantity1 = fid.readline().split()[2]
+        quantity2 = fid.readline().split()[2]
+        quantity3 = fid.readline().split()[2]
+        unit1 = fid.readline().split()[2]
+        unit2 = fid.readline().split()[2]
+        unit3 = fid.readline().split()[2]
+
+        if n_quantity == 4:
+            quantity4 = fid.readline().split()[2]
+            unit4 = fid.readline().split()[2]
+
+        # Initialize arrays
+        wind_speed = np.zeros((n_times, n_rows, n_cols))
+        wind_from_direction = np.zeros((n_times, n_rows, n_cols))
+        pressure_drop = np.zeros((n_times, n_rows, n_cols))
+        if n_quantity == 4:
+            precipitation = np.zeros((n_times, n_rows, n_cols))
+
+        for it in range(n_times):
+            line = fid.readline()
+            parts = line.split("=")
+            # Get the second part
+            line = parts[1]
+            t0 = float(line.split()[0])
+            tunits = line.split()[1]
+            trefstrs = line.split()[3:-1]
+            trefstr = " ".join(trefstrs)
+            tref = np.datetime64(trefstr)
+            if tunits[0:2] == "mi":
+                t = tref + np.timedelta64(int(t0), "m")
+            elif tunits[0:2] == "ho":
+                t = tref + np.timedelta64(int(t0), "h")
+            elif tunits[0:2] == "se":
+                t = tref + np.timedelta64(int(t0), "s")
+            x_spw_eye = float(fid.readline().split()[2])
+            y_spw_eye = float(fid.readline().split()[2])
+            p_drop_spw_eye = float(fid.readline().split()[2])
+
+
+            # Read the data
+            for i in range(n_rows):
+                wind_speed[it, i, :] = np.array(fid.readline().split(), dtype=float)
+            for i in range(n_rows):
+                wind_from_direction[it, i, :] = np.array(fid.readline().split(), dtype=float)
+            for i in range(n_rows):
+                pressure_drop[it, i, :] = np.array(fid.readline().split(), dtype=float)
+            if n_quantity == 4:
+                for i in range(n_rows):
+                    precipitation[it, i, :] = np.array(fid.readline().split(), dtype=float)
+
+        # Close file
+        fid.close()
+
+        # # Create Xarray dataset
+        # self.ds = xr.Dataset(
+        #     {
+        #         "wind_speed": (["time", "range", "azimuth"], wind_speed),
+        #         "wind_from_direction": (["time", "range", "azimuth"], wind_from_direction),
+        #         "pressure": (["time", "range", "azimuth"], 101200.0 - pressure_drop),
+        #     },
+        #     coords={
+        #         "time": np.arange(0, n_times),
+        #         "range": np.arange(0, n_rows),
+        #         "azimuth": np.arange(0, n_cols),
+        #     },
+        # )
+        # xxx=1
 
     def write_spiderweb_ascii(self, filename, background_pressure=1013.0, tref=None, merge_frac=0.5, include_rainfall=False):
         # Write in ASCII

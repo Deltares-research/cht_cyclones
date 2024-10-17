@@ -301,7 +301,7 @@ def compute_mean_error(r, w, obs, wrad):
             if not np.isnan(obs["quadrants_radii"][irad, iquad]):
                 err[iquad, irad] = vrad - wrad[irad]
             else:
-                err[iquad, irad] = np.NAN
+                err[iquad, irad] = np.nan
 
     # Get error values
     mask = ~np.isnan(err)  # Create the mask

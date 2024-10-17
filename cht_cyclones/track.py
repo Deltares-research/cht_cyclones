@@ -41,6 +41,8 @@ class TropicalCycloneTrack:
         try:
             gdf = read_trk(filename)
             self.gdf = gdf
+            # Get rid of NaN values in vmax
+            self.fix_nan_vmax()
             return None
         except:
             pass
@@ -55,6 +57,26 @@ class TropicalCycloneTrack:
             pass
 
         raise Exception("Error: could not read file " + filename)
+
+    def fix_nan_vmax(self):
+        # Sometimes COAMPS-TC data has 0.0 for vmax, which is replaced by NaN
+        # This is causes problems later on. Try to fix it by doing an interpolation where necessary. If it happens at the beginning or end, use nearest neighbor.
+        okay = True
+        for it in range(len(self.gdf)):
+            if np.isnan(self.gdf.vmax[it]):
+                okay = False
+                break
+
+        if not okay:
+            # Make pandas series
+            s = pd.Series(self.gdf.vmax)
+            # Interpolate
+            s = s.interpolate(method="linear")
+            # Put values back in gdf
+            for it in range(len(self.gdf)):
+                if np.isnan(self.gdf.vmax[it]):
+                    print("Warning! Replacing vmax = NaN in track with interpolated value at it = " + str(it))
+                    self.gdf.loc[it, "vmax"] = s.values[it]
 
     def write(self,
               filename,

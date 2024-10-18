@@ -892,85 +892,85 @@ class TropicalCyclone:
                 if self.track.R35_NE[it] > 0:
                     self.track.R35_NE[it] = self.track.R35_NE[it] * nm_to_km
                 else:
-                    self.track.R35_NE[it] = np.NaN
+                    self.track.R35_NE[it] = np.nan
 
                 if self.track.R35_SE[it] > 0:
                     self.track.R35_SE[it] = self.track.R35_SE[it] * nm_to_km
                 else:
-                    self.track.R35_SE[it] = np.NaN
+                    self.track.R35_SE[it] = np.nan
 
                 if self.track.R35_SW[it] > 0:
                     self.track.R35_SW[it] = self.track.R35_SW[it] * nm_to_km
                 else:
-                    self.track.R35_SW[it] = np.NaN
+                    self.track.R35_SW[it] = np.nan
 
                 if self.track.R35_NW[it] > 0:
                     self.track.R35_NW[it] = self.track.R35_NW[it] * nm_to_km
                 else:
-                    self.track.R35_NW[it] = np.NaN
+                    self.track.R35_NW[it] = np.nan
 
                 # R50
                 if self.track.R50_NE[it] > 0:
                     self.track.R50_NE[it] = self.track.R50_NE[it] * nm_to_km
                 else:
-                    self.track.R50_NE[it] = np.NaN
+                    self.track.R50_NE[it] = np.nan
 
                 if self.track.R50_SE[it] > 0:
                     self.track.R50_SE[it] = self.track.R50_SE[it] * nm_to_km
                 else:
-                    self.track.R50_SE[it] = np.NaN
+                    self.track.R50_SE[it] = np.nan
 
                 if self.track.R50_SW[it] > 0:
                     self.track.R50_SW[it] = self.track.R50_SW[it] * nm_to_km
                 else:
-                    self.track.R50_SW[it] = np.NaN
+                    self.track.R50_SW[it] = np.nan
 
                 if self.track.R50_NW[it] > 0:
                     self.track.R50_NW[it] = self.track.R50_NW[it] * nm_to_km
                 else:
-                    self.track.R50_NW[it] = np.NaN
+                    self.track.R50_NW[it] = np.nan
 
                 # R65
                 if self.track.R65_NE[it] > 0:
                     self.track.R65_NE[it] = self.track.R65_NE[it] * nm_to_km
                 else:
-                    self.track.R65_NE[it] = np.NaN
+                    self.track.R65_NE[it] = np.nan
 
                 if self.track.R65_SE[it] > 0:
                     self.track.R65_SE[it] = self.track.R65_SE[it] * nm_to_km
                 else:
-                    self.track.R65_SE[it] = np.NaN
+                    self.track.R65_SE[it] = np.nan
 
                 if self.track.R65_SW[it] > 0:
                     self.track.R65_SW[it] = self.track.R65_SW[it] * nm_to_km
                 else:
-                    self.track.R65_SW[it] = np.NaN
+                    self.track.R65_SW[it] = np.nan
 
                 if self.track.R65_NW[it] > 0:
                     self.track.R65_NW[it] = self.track.R65_NW[it] * nm_to_km
                 else:
-                    self.track.R65_NW[it] = np.NaN
+                    self.track.R65_NW[it] = np.nan
 
                 # R100
                 if self.track.R100_NE[it] > 0:
                     self.track.R100_NE[it] = self.track.R100_NE[it] * nm_to_km
                 else:
-                    self.track.R100_NE[it] = np.NaN
+                    self.track.R100_NE[it] = np.nan
 
                 if self.track.R100_SE[it] > 0:
                     self.track.R100_SE[it] = self.track.R100_SE[it] * nm_to_km
                 else:
-                    self.track.R100_SE[it] = np.NaN
+                    self.track.R100_SE[it] = np.nan
 
                 if self.track.R100_SW[it] > 0:
                     self.track.R100_SW[it] = self.track.R100_SW[it] * nm_to_km
                 else:
-                    self.track.R100_SW[it] = np.NaN
+                    self.track.R100_SW[it] = np.nan
 
                 if self.track.R100_NW[it] > 0:
                     self.track.R100_NW[it] = self.track.R100_NW[it] * nm_to_km
                 else:
-                    self.track.R100_NW[it] = np.NaN
+                    self.track.R100_NW[it] = np.nan
 
             # Done, so set variable
             self.unit_intensity = "ms"

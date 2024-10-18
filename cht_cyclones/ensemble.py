@@ -10,7 +10,7 @@ from shapely.geometry import LineString, Point
 import os
 
 from .spiderweb import TropicalCycloneSpiderweb
-from .utils import gdf_to_geojson_js
+from .utils import gdf_to_geojson_js, gdf_to_pli
 
 # Settings
 dateformat_module = "%Y%m%d %H%M%S"
@@ -222,6 +222,8 @@ class TropicalCycloneEnsemble:
                 gdf.to_file(filename, driver="GeoJSON")
             elif ext == ".js":
                 gdf_to_geojson_js(gdf, filename, varname=varname)
+            elif ext == ".pli":
+                gdf_to_pli(gdf, filename)
 
         return gdf    
 
@@ -452,10 +454,14 @@ class TropicalCycloneEnsembleMember:
         t1 = [date.timestamp() for date in t1]
 
         # Now interpolate
-        f = interp1d(t0, x)
+
+        # Use CubicSpline for x and y
+        f = CubicSpline(t0, x)
         x1 = f(t1)
-        f = interp1d(t0, y)
+        f = CubicSpline(t0, y)
         y1 = f(t1)
+
+        # Linear interpolation for vmax and wind_scale
         f = interp1d(t0, vmax)
         v1 = f(t1) / knots_to_ms
         f = interp1d(t0, wind_scale)
@@ -468,8 +474,10 @@ class TropicalCycloneEnsembleMember:
             pc1[it] = pavg - (pavg - self.tropical_cyclone.track.gdf.pc[it]) * ws1[it]**2
 
         # Loop over time for geometry
+        points = []
         for it in range(len(t1)):
-            self.tropical_cyclone.track.gdf["geometry"][it] = Point(x1[it], y1[it])
+            points.append(Point(x1[it], y1[it]))
+            self.tropical_cyclone.track.gdf.loc[it, "geometry"] = Point(x1[it], y1[it])
 
         # And set Vmax and wind scale factor
         self.tropical_cyclone.track.gdf.loc[:,"vmax"] = pd.Series(v1, index=self.tropical_cyclone.track.gdf.index)

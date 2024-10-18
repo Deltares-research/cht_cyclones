@@ -46,7 +46,11 @@ pd.options.mode.chained_assignment = None
 # Classes of the Tropical Cyclone module
 class TropicalCyclone:
     # Init
-    def __init__(self, name="no_name", track_file=None, config_file=None):
+    def __init__(self,
+                 name="no_name",
+                 track_file=None,
+                 config_file=None,
+                 tau=0):
         """Initialize the Tropical Cyclone object"""
 
         # Name         
@@ -64,7 +68,7 @@ class TropicalCyclone:
         if track_file is not None:
             # Track file can be a string or a list of strings
             if isinstance(track_file, list):
-                self.read_track_files_and_merge(track_file)
+                self.read_track_files_and_merge(track_file, tau=tau)
             else:
                 self.read_track(track_file)
 
@@ -117,12 +121,17 @@ class TropicalCyclone:
             for key in config:
                 self.config[key] = config[key]
 
-    def read_track_files_and_merge(self, track_file_list):
+    def read_track_files_and_merge(self, track_file_list, tau=0):
         # Read track files and merge them
         self.track = TropicalCycloneTrack()
-        for track_file in track_file_list:
+        for itrack, track_file in enumerate(track_file_list):
             track1 = TropicalCycloneTrack()
-            track1.read(track_file)
+            if itrack == 0:
+                # Do not use tau for the first track
+                tau1 = 0
+            else:
+                tau1 = tau
+            track1.read(track_file, tau=tau1)
             self.track.add(track1)
 
     # def resample_track(self, dt, method="spline"):
@@ -442,22 +451,17 @@ class TropicalCyclone:
                                        self.config["nr_directional_bins"],
                                        self.config["spiderweb_radius"] * 1000) # Creates the spiderweb arrays
 
-        # xm = meteo_dataset.x  
-        # ym = meteo_dataset.y  
-
-        # 6. Loop over time steps in the track
+        # Loop over time steps in the track
         for it in range(len(self.track.gdf)):
-
             # Get spiderweb grid coordinates
             tt = datetime.strptime(self.track.gdf.datetime[it], dateformat_module)
             xx = self.spiderweb.ds["lon"].values[it, :, :]
             yy = self.spiderweb.ds["lat"].values[it, :, :]
-
             # Get the data at the specified time (really should start doing this with xarray!)
-            self.spiderweb.ds["wind_x"].values[it, :, :] = meteo_dataset.interpolate("wind_u", tt, xx, yy)
-            self.spiderweb.ds["wind_y"].values[it, :, :] = meteo_dataset.interpolate("wind_v", tt, xx, yy)
-            self.spiderweb.ds["pressure"].values[it, :, :] = meteo_dataset.interpolate("barometric_pressure", tt, xx, yy, no_data_value=101200.0)
-            self.spiderweb.ds["precipitation"].values[it, :, :] = meteo_dataset.interpolate("precipitation", tt, xx, yy)
+            self.spiderweb.ds["wind_x"].values[it, :, :] = meteo_dataset.interpolate_variable("wind_u", tt, xx, yy)
+            self.spiderweb.ds["wind_y"].values[it, :, :] = meteo_dataset.interpolate_variable("wind_v", tt, xx, yy)
+            self.spiderweb.ds["pressure"].values[it, :, :] = meteo_dataset.interpolate_variable("barometric_pressure", tt, xx, yy)
+            self.spiderweb.ds["precipitation"].values[it, :, :] = meteo_dataset.interpolate_variable("precipitation", tt, xx, yy)
 
         # Default is spiderweb in ascii
         if filename is not None:

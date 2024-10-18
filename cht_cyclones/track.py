@@ -9,7 +9,7 @@ import os
 from pyproj import CRS, Geod
 
 from .wind_profiles import wpr_holland2008, wind_radii_nederhoff
-from .utils import gdf_to_geojson_js
+from .utils import gdf_to_geojson_js, gdf_to_pli
 
 knots_to_ms = float(0.51444)
 nm_to_km = float(1.852)
@@ -26,13 +26,14 @@ class TropicalCycloneTrack:
         self.unit_intensity = "knots"
         self.unit_radii = "nm"
 
-    def read(self, filename):
+    def read(self, filename, tau=0):
         """Read a tropical cyclone track from a file."""
 
         # Try to read cyc file new format
         try:
             gdf = read_cyc(filename)
             self.gdf = gdf
+            self.apply_tau(tau)
             return None
         except:
             pass
@@ -43,6 +44,7 @@ class TropicalCycloneTrack:
             self.gdf = gdf
             # Get rid of NaN values in vmax
             self.fix_nan_vmax()
+            self.apply_tau(tau)
             return None
         except:
             pass
@@ -51,12 +53,19 @@ class TropicalCycloneTrack:
         try:
             gdf, config, name = read_ddb_cyc(filename)
             self.gdf = gdf
+            self.apply_tau(tau)
             # Do not do anything with name
             return config
         except:
             pass
 
         raise Exception("Error: could not read file " + filename)
+
+    def apply_tau(self, tau):
+        """Apply tau to the track, i.e. start later if timec in track is smaller than tau"""
+        if tau > 0:
+            tstart = datetime.strptime(self.gdf.datetime[0], dateformat_module) + timedelta(hours=tau)
+            self.shorten(tstart=tstart)
 
     def fix_nan_vmax(self):
         # Sometimes COAMPS-TC data has 0.0 for vmax, which is replaced by NaN
@@ -108,96 +117,96 @@ class TropicalCycloneTrack:
             # Convert wind radii
             for it in range(len(self.gdf)):
                 if self.gdf.vmax[it] > 0.0:
-                    self.gdf.vmax[it] = self.gdf.vmax[it] * knots_to_ms * config["wind_conversion_factor"]
+                    self.gdf.loc[it, "vmax"] = self.gdf.vmax[it] * knots_to_ms * config["wind_conversion_factor"]
                 else:
-                    self.gdf.vmax[it] = np.nan    
+                    self.gdf.loc[it, "vmax"] = np.nan    
                 if self.gdf.rmw[it] > 0.0:
-                    self.gdf.rmw[it] = self.gdf.rmw[it] * nm_to_km
+                    self.gdf.loc[it, "rmw"] = self.gdf.rmw[it] * nm_to_km
                 else:
-                    self.gdf.rmw[it] = np.nan    
+                    self.gdf.loc[it, "rmw"] = np.nan    
                 # R35
                 if self.gdf.r35_ne[it] > 0.0:
-                    self.gdf.r35_ne[it] = self.gdf.r35_ne[it] * nm_to_km
+                    self.gdf.loc[it, "r35_ne"] = self.gdf.r35_ne[it] * nm_to_km
                 else:
-                    self.gdf.r35_ne[it] = np.nan
+                    self.gdf.loc[it, "r35_ne"] = np.nan
 
                 if self.gdf.r35_se[it] > 0.0:
-                    self.gdf.r35_se[it] = self.gdf.r35_se[it] * nm_to_km
+                    self.gdf.loc[it, "r35_se"] = self.gdf.r35_se[it] * nm_to_km
                 else:
-                    self.gdf.r35_se[it] = np.nan
+                    self.gdf.loc[it, "r35_se"] = np.nan
 
                 if self.gdf.r35_sw[it] > 0.0:
-                    self.gdf.r35_sw[it] = self.gdf.r35_sw[it] * nm_to_km
+                    self.gdf.loc[it, "r35_sw"] = self.gdf.r35_sw[it] * nm_to_km
                 else:
-                    self.gdf.r35_sw[it] = np.nan
+                    self.gdf.loc[it, "r35_sw"] = np.nan
 
                 if self.gdf.r35_nw[it] > 0.0:
-                    self.gdf.r35_nw[it] = self.gdf.r35_nw[it] * nm_to_km
+                    self.gdf.loc[it, "r35_nw"] = self.gdf.r35_nw[it] * nm_to_km
                 else:
-                    self.gdf.r35_nw[it] = np.nan
+                    self.gdf.loc[it, "r35_nw"] = np.nan
 
                 # r50
                 if self.gdf.r50_ne[it] > 0.0:
-                    self.gdf.r50_ne[it] = self.gdf.r50_ne[it] * nm_to_km
+                    self.gdf.loc[it, "r50_ne"] = self.gdf.r50_ne[it] * nm_to_km
                 else:
-                    self.gdf.r50_ne[it] = np.nan
+                    self.gdf.loc[it, "r50_ne"] = np.nan
 
                 if self.gdf.r50_se[it] > 0.0:
-                    self.gdf.r50_se[it] = self.gdf.r50_se[it] * nm_to_km
+                    self.gdf.loc[it, "r50_se"] = self.gdf.r50_se[it] * nm_to_km
                 else:
-                    self.gdf.r50_se[it] = np.nan
+                    self.gdf.loc[it, "r50_se"] = np.nan
 
                 if self.gdf.r50_sw[it] > 0.0:
-                    self.gdf.r50_sw[it] = self.gdf.r50_sw[it] * nm_to_km
+                    self.gdf.loc[it, "r50_sw"] = self.gdf.r50_sw[it] * nm_to_km
                 else:
-                    self.gdf.r50_sw[it] = np.nan
+                    self.gdf.loc[it, "r50_sw"] = np.nan
 
                 if self.gdf.r50_nw[it] > 0.0:
-                    self.gdf.r50_nw[it] = self.gdf.r50_nw[it] * nm_to_km
+                    self.gdf.loc[it, "r50_nw"] = self.gdf.r50_nw[it] * nm_to_km
                 else:
-                    self.gdf.r50_nw[it] = np.nan
+                    self.gdf.loc[it, "r50_nw"] = np.nan
 
                 # r65
                 if self.gdf.r65_ne[it] > 0.0:
-                    self.gdf.r65_ne[it] = self.gdf.r65_ne[it] * nm_to_km
+                    self.gdf.loc[it, "r65_ne"] = self.gdf.r65_ne[it] * nm_to_km
                 else:
-                    self.gdf.r65_ne[it] = np.nan
+                    self.gdf.loc[it, "r65_ne"]= np.nan
 
                 if self.gdf.r65_se[it] > 0.0:
-                    self.gdf.r65_se[it] = self.gdf.r65_se[it] * nm_to_km
+                    self.gdf.loc[it, "r65_se"] = self.gdf.r65_se[it] * nm_to_km
                 else:
-                    self.gdf.r65_se[it] = np.nan
+                    self.gdf.loc[it, "r65_se"] = np.nan
 
                 if self.gdf.r65_sw[it] > 0.0:
-                    self.gdf.r65_sw[it] = self.gdf.r65_sw[it] * nm_to_km
+                    self.gdf.loc[it, "r65_sw"] = self.gdf.r65_sw[it] * nm_to_km
                 else:
-                    self.gdf.r65_sw[it] = np.nan
+                    self.gdf.loc[it, "r65_sw"] = np.nan
 
                 if self.gdf.r65_nw[it] > 0.0:
-                    self.gdf.r65_nw[it] = self.gdf.r65_nw[it] * nm_to_km
+                    self.gdf.loc[it, "r65_nw"] = self.gdf.r65_nw[it] * nm_to_km
                 else:
-                    self.gdf.r65_nw[it] = np.nan
+                    self.gdf.loc[it, "r65_nw"] = np.nan
 
                 # r100
                 if self.gdf.r100_ne[it] > 0.0:
-                    self.gdf.r100_ne[it] = self.gdf.r100_ne[it] * nm_to_km
+                    self.gdf.loc[it, "r100_ne"] = self.gdf.r100_ne[it] * nm_to_km
                 else:
-                    self.gdf.r100_ne[it] = np.nan
+                    self.gdf.loc[it, "r100_ne"] = np.nan
 
                 if self.gdf.r100_se[it] > 0.0:
-                    self.gdf.r100_se[it] = self.gdf.r100_se[it] * nm_to_km
+                    self.gdf.loc[it, "r100_se"] = self.gdf.r100_se[it] * nm_to_km
                 else:
-                    self.gdf.r100_se[it] = np.nan
+                    self.gdf.loc[it, "r100_se"] = np.nan
 
                 if self.gdf.r100_sw[it] > 0.0:
-                    self.gdf.r100_sw[it] = self.gdf.r100_sw[it] * nm_to_km
+                    self.gdf.loc[it, "r100_sw"] = self.gdf.r100_sw[it] * nm_to_km
                 else:
-                    self.gdf.r100_sw[it] = np.nan
+                    self.gdf.loc[it, "r100_sw"] = np.nan
 
                 if self.gdf.r100_nw[it] > 0.0:
-                    self.gdf.r100_nw[it] = self.gdf.r100_nw[it] * nm_to_km
+                    self.gdf.loc[it, "r100_nw"] = self.gdf.r100_nw[it] * nm_to_km
                 else:
-                    self.gdf.r100_nw[it] = np.nan
+                    self.gdf.loc[it, "r100_nw"] = np.nan
 
             # Done, so set variable
             self.unit_intensity = "ms"
@@ -487,16 +496,22 @@ class TropicalCycloneTrack:
 
     def shorten(self, tstart=None, tend=None):
         """Shorten the track to a certain time period."""
+        times_to_remove = []
         if tstart is not None:
             for it, row in self.gdf.iterrows():
                 t = datetime.strptime(row.datetime, dateformat_module)
                 if t < tstart:
-                    self.remove_point(time=t)
+                    times_to_remove.append(t)
+                    # self.remove_point(time=t)
         if tend is not None:
             for it, row in self.gdf.iterrows():
                 t = datetime.strptime(row.datetime, dateformat_module)
                 if t > tend:
-                    self.remove_point(time=t)            
+                    times_to_remove.append(t)
+                    # self.remove_point(time=t)            
+        if len(times_to_remove) > 0:
+            for t in times_to_remove:
+                self.remove_point(time=t)
 
     def resample(self, dt, method="spline"):
 
@@ -516,7 +531,7 @@ class TropicalCycloneTrack:
         # Copy first point of existing track
         for it in range(nt):
             gdf = pd.concat([gdf, self.gdf.iloc[[0]]], ignore_index=True)
-            gdf.datetime[it] = (t0 + it * dt).strftime(dateformat_module)
+            gdf.loc[it, "datetime"] = (t0 + it * dt).strftime(dateformat_module)
 
         self.gdf = interpolate_track(self.gdf, gdf, method=method)
 
@@ -662,6 +677,8 @@ class TropicalCycloneTrack:
                 gdf.to_file(filename, driver="GeoJSON")
             elif ext == ".js":
                 gdf_to_geojson_js(gdf, filename, varname="track_data")   
+            elif ext == ".pli":
+                gdf_to_pli(gdf, filename)   
 
         return gdf    
 
@@ -989,8 +1006,8 @@ def read_trk(filename):
                 # New time point found
                 # create new gdf
                 new_point = True
-                gdf_point = GeoDataFrame()
-                gdf_point["geometry"] = [Point(x, y)]  # Assign the new geometry
+                gdf_point = GeoDataFrame(geometry=[Point(x, y)])
+                # gdf_point["geometry"] = [Point(x, y)]  # Assign the new geometry
                 gdf_point["datetime"] = newtime.astype("O").strftime("%Y%m%d %H%M%S")
                 gdf_point["vmax"]   = np.nan
                 gdf_point["pc"]     = np.nan
@@ -1214,8 +1231,8 @@ def interpolate_track(gdf0, gdf1, method="linear"):
     gdf = GeoDataFrame()
     for index, time in enumerate(track1["datetime"]):
         point = Point(track1["x"][index], track1["y"][index])
-        gdf_point = GeoDataFrame()
-        gdf_point["geometry"] = [Point(track1["x"][index], track1["y"][index])]  # Assign the new geometry
+        gdf_point = GeoDataFrame(geometry=[point])
+        # gdf_point["geometry"] = [Point(track1["x"][index], track1["y"][index])]  # Assign the new geometry
         gdf_point["datetime"] = track1["datetime"][index].strftime(dateformat_module)
         # Loop through items in track1
         for key, value in track1.items():

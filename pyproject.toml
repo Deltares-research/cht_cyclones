@@ -18,7 +18,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
 requires-python = ">=3.10"
-dependencies = ["numpy", "scipy", "pandas", "geopandas","matplotlib", "shapely", "xarray", "fiona"]
+dependencies = ["numpy", "scipy", "pandas", "geopandas","matplotlib", "shapely", "xarray", "fiona", "toml"]
 dynamic = ["version"]
 
 [project.optional-dependencies]

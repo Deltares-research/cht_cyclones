@@ -9,3 +9,5 @@ __version__ = "0.0.1"
 
 from .tropical_cyclone import TropicalCyclone
 from .track_database import CycloneTrackDatabase
+from .track_selector import track_selector
+

@@ -25,9 +25,11 @@ class TropicalCycloneEnsemble:
     def __init__(self, tropical_cyclone,
                  name="ensemble",
                  number_of_realizations=10,
+                 compute_wind_fields=True,
                  dt=3,
                  tstart=None,
                  tend=None,
+                 duration=None,
                  track_path=None,
                  spw_path=None,
                  mean_abs_cte24=19.0397,
@@ -43,6 +45,8 @@ class TropicalCycloneEnsemble:
 
         # If name is not given, use the name of the tropical cyclone
         self.name = name
+
+        self.compute_wind_fields = compute_wind_fields
 
         if track_path is None:
             track_path = os.getcwd()
@@ -71,7 +75,7 @@ class TropicalCycloneEnsemble:
         self.sc_ve = sc_ve  # auto-regression VE = 1 = no auto-regression
         self.bias_ve = bias_ve  # bias per hour
 
-        self.tropical_cyclone = tropical_cyclone
+        self.tropical_cyclone = copy.deepcopy(tropical_cyclone)
 
         # Set scale factor of the best track to 1.0
         self.tropical_cyclone.track.gdf.loc[:,"wind_scale_factor"] = pd.Series(np.zeros(len(self.tropical_cyclone.track.gdf)) + 1.0,
@@ -85,7 +89,12 @@ class TropicalCycloneEnsemble:
             self.tstart = tstart
 
         if tend is not None:
-            self.tropical_cyclone.track.shorten(tend=tend)             
+            # Do we really want to shorten the track?
+            self.tropical_cyclone.track.shorten(tend=tend)
+        else:
+            if duration is not None:
+                tend = self.tstart + pd.Timedelta(duration, unit="h")
+                self.tropical_cyclone.track.shorten(tend=tend)
 
         # Make sure the metric track is computed
         self.tropical_cyclone.compute_metric_track()
@@ -111,7 +120,8 @@ class TropicalCycloneEnsemble:
 
         self.generate_tracks() # Generates the tracks and vmax values for the individual ensemble members
 
-        self.compute_wind_fields() # Computes the wind fields by scaling
+        if self.compute_wind_fields:
+            self.compute_wind_fields() # Computes the wind fields by scaling
 
     def generate_tracks(self):
 
@@ -204,7 +214,7 @@ class TropicalCycloneEnsemble:
         # Get the GDF
         if option == "tracks":
             gdf = self.tracks_to_gdf()
-        elif option == "outline":
+        elif option == "outline" or option == "cone":
             gdf = self.outline_to_gdf(buffer, only_forecast)
 
         # Write to file 

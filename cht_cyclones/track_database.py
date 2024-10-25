@@ -105,6 +105,8 @@ class CycloneTrackDatabase:
         # Create a TropicalCyclone object
         tc = TropicalCyclone(name=self.name[index])
 
+        gdf = gpd.GeoDataFrame()
+
         # Add track
         for it in range(self.ntimes):
             # Check if track is finite
@@ -159,42 +161,41 @@ class CycloneTrackDatabase:
             R100_NW = -999.0
 
             # Create a geopandas dataframe
-            gdf = gpd.GeoDataFrame(
+            gdf_point = gpd.GeoDataFrame(
                 {
                     "datetime": [tc_time_string],
                     "geometry": [point],
                     "vmax": [vmax],
                     "pc": [pc],
-                    "RMW": [RMW],
-                    "R35_NE": [R35_NE],
-                    "R35_SE": [R35_SE],
-                    "R35_SW": [R35_SW],
-                    "R35_NW": [R35_NW],
-                    "R50_NE": [R50_NE],
-                    "R50_SE": [R50_SE],
-                    "R50_SW": [R50_SW],
-                    "R50_NW": [R50_NW],
-                    "R65_NE": [R65_NE],
-                    "R65_SE": [R65_SE],
-                    "R65_SW": [R65_SW],
-                    "R65_NW": [R65_NW],
-                    "R100_NE": [R100_NE],
-                    "R100_SE": [R100_SE],
-                    "R100_SW": [R100_SW],
-                    "R100_NW": [R100_NW],
+                    "rmw": [RMW],
+                    "r35_ne": [R35_NE],
+                    "r35_se": [R35_SE],
+                    "r35_sw": [R35_SW],
+                    "r35_nw": [R35_NW],
+                    "r50_ne": [R50_NE],
+                    "r50_se": [R50_SE],
+                    "r50_sw": [R50_SW],
+                    "r50_nw": [R50_NW],
+                    "r65_ne": [R65_NE],
+                    "r65_se": [R65_SE],
+                    "r65_sw": [R65_SW],
+                    "r65_nw": [R65_NW],
+                    "r100_ne": [R100_NE],
+                    "r100_se": [R100_SE],
+                    "r100_sw": [R100_SW],
+                    "r100_nw": [R100_NW],
                 }
             )
 
-            # Set CRS coordinate system
-            gdf.set_crs(epsg=4326, inplace=True)
-
             # Append self
-            tc.track = pd.concat([tc.track, gdf])
+            gdf = pd.concat([gdf, gdf_point])
 
-        # Done with this
-        tc.track = tc.track.reset_index(drop=True)
-        tc.track = tc.track.drop([0])  # remove the dummy
-        tc.track = tc.track.reset_index(drop=True)
+        # Replace -999.0 with NaN
+        gdf = gdf.replace(-999.0, np.nan)
+        gdf = gdf.reset_index(drop=True)
+        gdf = gdf.set_crs(crs=4326, inplace=True)
+
+        tc.track.gdf = gdf
 
         return tc
 

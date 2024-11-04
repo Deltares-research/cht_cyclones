@@ -1,5 +1,6 @@
 import json
 
+
 def gdf_to_geojson_js(gdf, filename, varname="track_ensemble"):
     """Write out the ensemble to a geojson or js file."""
     text = "var " + varname + " ="

@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.interpolate import CubicSpline, interp1d
 
-
 from .wind_profiles import holland2010
+
 
 # Definition to fit Holland 2010 wind field
 def fit_wind_field_holland2010(

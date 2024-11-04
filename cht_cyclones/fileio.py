@@ -1,6 +1,8 @@
 from datetime import datetime
+
 import geopandas as gpd
 from shapely.geometry import Point
+
 
 class TropicalCycloneTrack:
     def __init__(self):

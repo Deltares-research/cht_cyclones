@@ -15,24 +15,24 @@ Module supports two classes
 """
 
 # Standard Library Imports
+import copy
 import os
 from datetime import datetime
-import copy
 
 # Third-Party Library Imports
 import geopandas as gpd
+
 # import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyproj
 import toml
 
-from .track import TropicalCycloneTrack
-from .spiderweb import TropicalCycloneSpiderweb
 from .ensemble import TropicalCycloneEnsemble
-
-from .wind_profiles import holland2010
 from .fit_holland_2010 import fit_wind_field_holland2010
+from .spiderweb import TropicalCycloneSpiderweb
+from .track import TropicalCycloneTrack
+from .wind_profiles import holland2010
 
 geodesic = pyproj.Geod(ellps="WGS84")
 
@@ -475,7 +475,7 @@ class TropicalCyclone:
     def get_wind_field_from_coamps(self, coamps_path, coamps_cycle, filename=None, format="ascii"):
         """Get the wind field from coamps-tc"""
 
-        import xarray as xr        
+        import xarray as xr
         from cht_utils.misc_tools import interp2
 
         # # Track has already been defined

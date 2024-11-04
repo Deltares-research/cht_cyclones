@@ -1,5 +1,6 @@
 import numpy as np
 
+
 ######
 # Definitions that I want to be available in general
 ######

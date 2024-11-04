@@ -1,6 +1,6 @@
 import os
 
-def track_selector(database, app, lon=0.0, lat=0.0, distance=1000.0, year_min=1850, year_max=2030):
+def track_selector(dataset, app, lon=0.0, lat=0.0, distance=1000.0, year_min=1850, year_max=2030):
 
     app.gui.setvar("cyclone_track_selector", "lon", lon)
     app.gui.setvar("cyclone_track_selector", "lat", lat)
@@ -10,7 +10,7 @@ def track_selector(database, app, lon=0.0, lat=0.0, distance=1000.0, year_min=18
     app.gui.setvar("cyclone_track_selector", "name", "")
 
     data = {}
-    data["track_database"] = database
+    data["track_dataset"] = dataset
 
     # Read GUI config file
     config_file = os.path.join(os.path.dirname(__file__), "cyclone_track_selector.yml")
@@ -18,8 +18,8 @@ def track_selector(database, app, lon=0.0, lat=0.0, distance=1000.0, year_min=18
 
     track = None
     if okay:
-        # Get the track from the database
-        track = database.get_track(data["database_index"])
+        # Get the track from the dataset
+        track = dataset.get_track(data["dataset_index"])
 
     return track, okay
 
@@ -56,7 +56,7 @@ def update_tracks(gui):
 
     data = gui.popup_data
 
-    tdb = data["track_selector"]["track_database"]
+    tdb = data["track_selector"]["track_dataset"]
     tracks_layer = data["track_selector"]["track_layer"]
 
     # Get filter data
@@ -82,7 +82,7 @@ def map_moved(coords, widget):
 
 
 def select_track(feature, widget):
-    widget.element.gui.popup_data["track_selector"]["database_index"] = feature["properties"]["database_index"]
+    widget.element.gui.popup_data["track_selector"]["dataset_index"] = feature["properties"]["dataset_index"]
 
 
 def edit_filter(val, widget):

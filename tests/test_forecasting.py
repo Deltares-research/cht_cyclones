@@ -1,8 +1,8 @@
 # Load modules
-from cht_cyclones.tropical_cyclone import TropicalCyclone
-from cht_cyclones.tropical_cyclone import TropicalCycloneEnsemble
 import os
 from datetime import datetime
+
+from cht_cyclones.tropical_cyclone import TropicalCyclone, TropicalCycloneEnsemble
 
 # Define folder and track
 tc                  = TropicalCyclone(name="Idai")

@@ -1,7 +1,7 @@
 # Load modules
-from cht_cyclones.tropical_cyclone import TropicalCyclone
-from cht_cyclones.tropical_cyclone import TropicalCycloneEnsemble
 import os
+
+from cht_cyclones.tropical_cyclone import TropicalCyclone, TropicalCycloneEnsemble
 
 # Define a track
 tc                  = TropicalCyclone(name="Idai")

@@ -1,19 +1,20 @@
 import datetime
-from functools import reduce
 import os
+from functools import reduce
+
+import boto3
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import shapely
+import toml
 import xarray as xr
-import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
-import toml
-
-from  cht_utils import fileops as fo
+from cht_utils import fileops as fo
 
 from .tropical_cyclone_refactored import TropicalCyclone
+
 
 class CycloneTrackDataset:
     """

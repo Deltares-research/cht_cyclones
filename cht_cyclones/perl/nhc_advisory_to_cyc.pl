@@ -82,7 +82,7 @@
 #               is zero (i.e., for the 1st advisory's output).  (RSL)
 #  21 Jul 2006  Fixed bug in 3rd date algorithm in sub. process_data.  (RSL)
 #  12 Sep 2006  Defined $MeanRMW in sub. DUMP; modified sub. print_data to set any
-#               zero RMW value to the mean; changed ambient air pressure, $on, in sub.
+#               zero RMW value to the mean; changed ambient air pressure, $pn, in sub.
 #               process_data to 1013.25 (std. atmosphere).  (RSL)
 #  28 Jul 2011  Added sub. wind_pressure_relationship to better estimate minimum
 #               central pressure given wind speed (Dvorak technique); replaced the def.
@@ -118,7 +118,7 @@
 #               added '$storm_id' and '$warning_number' parambers to sub. process_data;
 #               upgraded sub. get_radius to add parameters & code to load the output 3-D
 #               wind radii array; updated the call to sub. print_track_file to include
-#               the environmental pressure ($on) and to use the new 3-D wind radii
+#               the environmental pressure ($pn) and to use the new 3-D wind radii
 #               array (@r100_65_50_35_3D).  (RSL)
 #  18 May 2012  Added '$warn_id' for the storm warning ID (based on the input file
 #               name without the extension).  (RSL)
@@ -160,7 +160,7 @@
 #               $EBT_MISS (missing value code), @rad_outer_iso (radius of the
 #               outermost closed isobar) for the extended best track output option;
 #               added @pres_outer_iso to store the background pressure in an array for
-#               the best track output option; replaced $on with @pres_outer_iso in the
+#               the best track output option; replaced $pn with @pres_outer_iso in the
 #               call to sub. write_ext_best_track.  (RSL)
 #  07 Feb 2013  Added new array @storm_id_strs to store the storm ID string & pass
 #               to sub. write_ext_best_track for the extended best track option.
@@ -302,7 +302,7 @@ for my $i (0..$#for_year) {
    if ($for_rad[$i] == 0) { $for_rad[$i] = $MeanRMW; }
    #  Convert RMW from km to nmi for non-PCTides output.
    $for_rad[$i] /= $nm2km;
-   $pres_outer_iso[$i] = $on;
+   $pres_outer_iso[$i] = $pn;
    $storm_id_strs[$i] = $storm_id;
    if ($i == 0) {
       $eye_diam[$i] = $eye_diameter;
@@ -320,7 +320,7 @@ if (!@rad_outer_iso) {
 #  Check whether the @pres_outer_iso array has any values.
 if (!@pres_outer_iso) {
    #  It has none, so load it with background pressure values.
-   @pres_outer_iso = ($on) x scalar(@for_rad);   # Load this array
+   @pres_outer_iso = ($pn) x scalar(@for_rad);   # Load this array
 }
 
 #  Check the input best track file flag.
@@ -633,7 +633,7 @@ sub process_data {
     #  Constants for output file header:
     $rho = 1.15;            # Air density, kg/m^3
     $e = exp(1);            # Base of natural log
-    $on = 1013.25;          # Ambient air pressure (far from edge of storm), mb - Originally 1005
+    $pn = 1013.25;          # Ambient air pressure (far from edge of storm), mb - Originally 1005
     $mb2npm2 = 100;         # Conversion factor, mb to N/m^2
     $kn2mps = 0.514444;     # Conversion factor, knots to m/s
     $BMin = 1;              # Minimum valid Holland "B" value
@@ -830,9 +830,9 @@ sub process_data {
             if ($cp < $CP_MIN) {
                 warn "  WARNING: Central Pressure \($cp\) < Minimum \($CP_MIN mb\); resetting to Minimum.\n";
                 $cp = $CP_MIN;
-            } elsif ($cp > $on) {
-                warn "  WARNING: Central Pressure \($cp\) > Ambient \($on mb\); resetting to Ambient.\n";
-                $cp = $on;
+            } elsif ($cp > $pn) {
+                warn "  WARNING: Central Pressure \($cp\) > Ambient \($pn mb\); resetting to Ambient.\n";
+                $cp = $pn;
             }
         }
 
@@ -1441,7 +1441,7 @@ sub process_data {
                     $for_cp[$nforecast] = $cp;
                 } else {
                     #  Invalid, so use ambient.
-                    $for_cp[$nforecast] = $on;
+                    $for_cp[$nforecast] = $pn;
                 }
             } else {
                 #  Past the 1st forecast, so check the previous value.
@@ -1450,7 +1450,7 @@ sub process_data {
                     $for_cp[$nforecast] = $for_cp[$nforecast-1];
                 } else {
                     #  Invalid, so use ambient.
-                    $for_cp[$nforecast] = $on;
+                    $for_cp[$nforecast] = $pn;
                 }
             }
         }
@@ -1460,7 +1460,7 @@ sub process_data {
     #  Calculate Holland B parameter based on current observations.  Warn the user
     #  if B is invalid, and reset the value to either the min or max valid value.
     #  Calculation is performed only if not appending to the output flag.
-    if ($appendflag != 1 && $winds > 0 && $cp != $on) { $B = ($rho  * $e  * (($winds * $kn2mps)**2)) / (abs($on - $cp) * $mb2npm2); }
+    if ($appendflag != 1 && $winds > 0 && $cp != $pn) { $B = ($rho  * $e  * (($winds * $kn2mps)**2)) / (abs($pn - $cp) * $mb2npm2); }
     if ($B > $BMax) {
         warn "  NOTICE: Holland B parameter exceeds $BMax; resetting to $BMax.\n";
         $B = $BMax;
@@ -1900,9 +1900,9 @@ sub DUMP {
                 if ($for_cp[$i] < $CP_MIN) {
                     warn "  WARNING: Forecast Central Pressure \($for_cp[$i]\) < Minimum \($CP_MIN mb\); resetting to Minimum.\n";
                     $for_cp[$i] = $CP_MIN;
-                } elsif ($for_cp[$i] > $on) {
-                    warn "  WARNING: Forecast Central Pressure \($for_cp[$i]\) > Ambient \($on mb\); resetting to Ambient.\n";
-                    $for_cp[$i] = $on;
+                } elsif ($for_cp[$i] > $pn) {
+                    warn "  WARNING: Forecast Central Pressure \($for_cp[$i]\) > Ambient \($pn mb\); resetting to Ambient.\n";
+                    $for_cp[$i] = $pn;
                 }
 
                 ##print "DDate: $ddate CP: $cp  WInds: $winds For_Wind:  $for_winds[$i]  Ratio: $ratio:  For_CP: $for_cp[$i].\n";

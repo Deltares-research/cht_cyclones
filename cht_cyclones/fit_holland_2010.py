@@ -6,14 +6,14 @@ from cht_cyclones.wind_profiles import holland2010
 
 # Definition to fit Holland 2010 wind field
 def fit_wind_field_holland2010(
-    vmax, rmax, pc, vtreal, phit, on, phi_spiral, lat, dpdt, obs
+    vmax, rmax, pc, vtreal, phit, pn, phi_spiral, lat, dpdt, obs
 ):
     # Discussion
     # shouldnt we have a switch to only calibrate vt and phi_a for observed radii
     # what about limits on these variables
     # OK with xn calibration
 
-    # function to fit wind field based on Holland 2010
+    # function to fit wind field based pn Holland 2010
     size_factor = 1
     phi = np.arange(90, -270 - 10, -10)  # radial angles (cartesian, degrees)
     rmax = rmax * 1000  # convert from km to m
@@ -61,7 +61,7 @@ def fit_wind_field_holland2010(
                 vmax,
                 pc,
                 rmax,
-                on,
+                pn,
                 vtreal,
                 phit,
                 lat,
@@ -83,7 +83,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -102,7 +102,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -147,7 +147,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -166,7 +166,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -212,7 +212,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -231,7 +231,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -364,13 +364,13 @@ def compute_forward_speed_heading(t, x, y):
 
 # definition to compute wind field
 def compute_wind_field(
-    r, phi, vmax, pc, rmax, on, vtreal, phit, lat, dpdt, phi_spiral, xn, vt, phia
+    r, phi, vmax, pc, rmax, pn, vtreal, phit, lat, dpdt, phi_spiral, xn, vt, phia
 ):
     # Discussion is asymmetry account for properly? I believe there should be a factor in front of ux/vy
     vms = vmax - vt
 
     # compute wind profile (vr and pr)
-    [vr, pr] = holland2010(r, vms, pc, on, rmax, dpdt, lat, vtreal, xn)
+    [vr, pr] = holland2010(r, vms, pc, pn, rmax, dpdt, lat, vtreal, xn)
 
     wind_speed = np.zeros((phi.shape[0], r.shape[0]))
     wind_to_direction_cart = np.zeros((phi.shape[0], r.shape[0]))

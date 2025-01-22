@@ -235,7 +235,7 @@ class TropicalCyclone:
             vmax = self.track_metric.gdf.vmax[it]
             pc = self.track_metric.gdf.pc[it]
             rmax = self.track_metric.gdf.rmw[it]
-            on = self.config["background_pressure"]
+            pn = self.config["background_pressure"]
             coords = self.track_metric.gdf.geometry[it]
             latitude = coords.y
 
@@ -298,7 +298,7 @@ class TropicalCyclone:
                         pc,
                         vt,
                         phit,
-                        on,
+                        pn,
                         self.config["phi_spiral"],
                         latitude,
                         dpcdt,
@@ -315,7 +315,7 @@ class TropicalCyclone:
                 or self.config["wind_profile"] == "holland2010"
             ):
                 vrel = vmax - vtcor
-                [vr, pr] = holland2010(r, vrel, pc, on, rmax, dpcdt, latitude, vt, xn)
+                [vr, pr] = holland2010(r, vrel, pc, pn, rmax, dpcdt, latitude, vt, xn)
             else:
                 raise Exception("This wind_profile is not supported")
 

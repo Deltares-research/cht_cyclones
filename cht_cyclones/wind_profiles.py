@@ -5,7 +5,7 @@ import numpy as np
 # Definitions that I want to be available in general
 ######
 # Definitions to compute Holland 2010 (1D)
-def holland2010(r, vmax, pc, on, rmax, dpdt, lat, vt, xn):
+def holland2010(r, vmax, pc, pn, rmax, dpdt, lat, vt, xn):
     """
     Returning the one-dimensional Holland et al. (2010) parametric wind profile
 
@@ -15,9 +15,9 @@ def holland2010(r, vmax, pc, on, rmax, dpdt, lat, vt, xn):
     etc etc.
 
     """
-    # calculate Holland b parameter based on Holland (2008) - assume Dvorak method
+    # calculate Holland b parameter based pn Holland (2008) - assume Dvorak method
     vms = vmax
-    dp = max(on - pc, 1)
+    dp = max(pn - pc, 1)
     x = 0.6 * (1 - dp / 215)
     if np.isnan(dpdt):
         dpdt = 0
@@ -195,15 +195,15 @@ def wind_radii_nederhoff(vmax, lat, region, probability):
 
 # Definition to compute wind-pressure relation to determine the vmax or the pressure drop
 def wpr_holland2008(
-    pc=None, on=None, phi=None, vt=None, dpcdt=None, rhoa=None, SST=None, vmax=None
+    pc=None, pn=None, phi=None, vt=None, dpcdt=None, rhoa=None, SST=None, vmax=None
 ):
     # used when pc needs to be determined
     if not rhoa:
         if vmax:
             dp1 = np.arange(1, 151 + 5, 5)
-            pc1 = on - dp1
+            pc1 = pn - dp1
         else:
-            dp1 = on - pc
+            dp1 = pn - pc
             pc1 = pc
 
         if not SST:
@@ -219,8 +219,8 @@ def wpr_holland2008(
 
     # vmax to be determined
     if not vmax:
-        pc = min(pc, on - 1.0)
-        dp = on - pc
+        pc = min(pc, pn - 1.0)
+        dp = pn - pc
         x = 0.6 * (1 - dp / 215)
         bs = (
             -4.4e-5 * dp**2
@@ -241,6 +241,6 @@ def wpr_holland2008(
             * (1 + 0.00285 * abs(phi) ** 1.35)
             * vmaxkmh**1.81
         )
-        output = on - dp
+        output = pn - dp
 
     return output

@@ -640,7 +640,7 @@ class TropicalCyclone:
                     # estimate this: vmax is in m/s
                     vmax = wpr_holland2008(
                         pc=self.track.pc[it],
-                        on=self.background_pressure,
+                        pn=self.background_pressure,
                         phi=coords_it.y,
                         dpcdt=self.track.dpcdt[it],
                         vt=np.sqrt(self.track.vtx[it] ** 2 + self.track.vty[it] ** 2),
@@ -660,7 +660,7 @@ class TropicalCyclone:
                     if self.unit_intensity == "knots":
                         pc = wpr_holland2008(
                             vmax=self.track.vmax[it] * knots_to_ms,
-                            on=self.background_pressure,
+                            pn=self.background_pressure,
                             phi=coords_it.y,
                             dpcdt=self.track.dpcdt[it],
                             vt=np.sqrt(
@@ -671,7 +671,7 @@ class TropicalCyclone:
                     else:
                         pc = wpr_holland2008(
                             vmax=self.track.vmax[it],
-                            on=self.background_pressure,
+                            pn=self.background_pressure,
                             phi=coords_it.y,
                             dpcdt=self.track.dpcdt[it],
                             vt=np.sqrt(
@@ -1406,7 +1406,7 @@ class TropicalCyclone:
             vmax = self.track.vmax[it]
             pc = self.track.pc[it]
             rmax = self.track.RMW[it]
-            on = self.background_pressure
+            pn = self.background_pressure
             rhoa = self.rho_air  # noqa: F841
             xn = 0.5
             coords = self.track.geometry[it]
@@ -1462,7 +1462,7 @@ class TropicalCyclone:
                         pc,
                         vt,
                         phit,
-                        on,
+                        pn,
                         self.phi_spiral,
                         lat,
                         dpcdt,
@@ -1474,23 +1474,23 @@ class TropicalCyclone:
                     vmax_rel = vmax - vtcor
 
                 # Finally, fit profile
-                [vr, pr] = holland2010(r, vmax_rel, pc, on, rmax, dpcdt, lat, vt, xn)
+                [vr, pr] = holland2010(r, vmax_rel, pc, pn, rmax, dpcdt, lat, vt, xn)
 
             # Assume constant xn that follows a relationship described in 2008 paper
             elif self.wind_profile == "holland2008":
                 xn = 0.6 * (1 - dp / 215)
-                [vr, pr] = holland2010(r, vmax_rel, pc, on, rmax, dpcdt, lat, vt, xn)
+                [vr, pr] = holland2010(r, vmax_rel, pc, pn, rmax, dpcdt, lat, vt, xn)
 
             # Original Holland uses a constant xn of 0.5
             elif self.wind_profile == "holland1980":
                 xn = 0.5
-                [vr, pr] = holland2010(r, vmax_rel, pc, on, rmax, dpcdt, lat, vt, xn)
+                [vr, pr] = holland2010(r, vmax_rel, pc, pn, rmax, dpcdt, lat, vt, xn)
 
             else:
                 raise Exception("This wind_profile is not supported")
 
             # Compute pressure drop
-            pd = on - pr
+            pd = pn - pr
 
             # Go over the different phi
             for iphi in range(len(phi)):
@@ -1569,7 +1569,7 @@ class TropicalCyclone:
             # Save into a dictionary for spiderweb
             spiderweb_dict["wind_speed"] = wind_speed
             spiderweb_dict["wind_from_direction"] = wind_from_direction
-            spiderweb_dict["pressure"] = on - pressure_drop / 100  # pa - hPa
+            spiderweb_dict["pressure"] = pn - pressure_drop / 100  # pa - hPa
             spiderweb_dict["pressure_drop"] = pressure_drop
             spiderweb_dict["rainfall_rate"] = (
                 rainfall_rate * self.rainfall_factor
@@ -1885,7 +1885,7 @@ class TropicalCycloneEnsemble:
             0  # if in calibration - seed value is 1, otherwise random/default
         )
 
-        # Error statistics - based on NHC of 2018-2021
+        # Error statistics - based pn NHC of 2018-2021
         self.mean_abs_cte24 = (
             19.0397 * nm_to_m
         )  # mean absolute error in cross-track error (CTE) in meter
@@ -1923,7 +1923,7 @@ class TropicalCycloneEnsemble:
 
     # Compute ensemble member
     def compute_ensemble(self, number_of_realizations=None):
-        # First set time variables based on best track
+        # First set time variables based pn best track
         if self.debug == 1:
             print("Started with making ensembles")
         self.number_of_realizations = number_of_realizations
@@ -2214,12 +2214,12 @@ class TropicalCycloneEnsemble:
                     ensemble_lat[it, :] = best_track_lat2[it] + dy
 
                 elif self.position_method == 1:
-                    # Compute new position based on best track position and ate/cte
+                    # Compute new position based pn best track position and ate/cte
                     lon0 = best_track_lon2[items0]
                     lat0 = best_track_lat2[items0]
                     lon1 = best_track_lon2[it]
                     lat1 = best_track_lat2[it]
-                    # Compute track heading based on latitude / longitude of two points
+                    # Compute track heading based pn latitude / longitude of two points
                     fwd_azimuth, back_azimuth, distance = geodesic.inv(
                         lon0, lat0, lon1, lat1
                     )
@@ -2278,7 +2278,7 @@ class TropicalCycloneEnsemble:
                                     ensemble_ar35[it, index] / nm_to_km
                                 )  # km to nautical mile
 
-                # Check if TC is on land and include maxima
+                # Check if TC is pn land and include maxima
                 if self.check_land:
                     # Compute distance
                     shapefile_polygon = r"g:\02_forecasting\_TMP\polygon_land.shp"
@@ -2335,7 +2335,7 @@ class TropicalCycloneEnsemble:
                 ensemble_rmw[it, :] = best_track_rmw2[it]
                 ensemble_ar35[it, :] = best_track_ar352[it]
 
-        # Apply spatial smoothing on track data
+        # Apply spatial smoothing pn track data
         factor = round(12 / (dtd * 24))
         if factor > 1:
             for nn in range(self.number_of_realizations):
@@ -2567,7 +2567,7 @@ class TropicalCycloneEnsemble:
 # Definitions that I want to be available in general
 ######
 # Definitions to compute Holland 2010 (1D)
-def holland2010(r, vms, pc, on, rmax, dpdt, lat, vt, xn):
+def holland2010(r, vms, pc, pn, rmax, dpdt, lat, vt, xn):
     """
     Returning the one-dimensional Holland et al. (2010) parametric wind profile
 
@@ -2577,8 +2577,8 @@ def holland2010(r, vms, pc, on, rmax, dpdt, lat, vt, xn):
     etc etc.
 
     """
-    # calculate Holland b parameter based on Holland (2008) - assume Dvorak method
-    dp = max(on - pc, 1)
+    # calculate Holland b parameter based pn Holland (2008) - assume Dvorak method
+    dp = max(pn - pc, 1)
     x = 0.6 * (1 - dp / 215)
     if np.isnan(dpdt):
         dpdt = 0
@@ -2756,15 +2756,15 @@ def wind_radii_nederhoff(vmax, lat, region, probability):
 
 # Definition to compute wind-pressure relation to determine the vmax or the pressure drop
 def wpr_holland2008(
-    pc=None, on=None, phi=None, vt=None, dpcdt=None, rhoa=None, SST=None, vmax=None
+    pc=None, pn=None, phi=None, vt=None, dpcdt=None, rhoa=None, SST=None, vmax=None
 ):
     # used when pc needs to be determined
     if not rhoa:
         if vmax:
             dp1 = np.arange(1, 151 + 5, 5)
-            pc1 = on - dp1
+            pc1 = pn - dp1
         else:
-            dp1 = on - pc
+            dp1 = pn - pc
             pc1 = pc
 
         if not SST:
@@ -2780,8 +2780,8 @@ def wpr_holland2008(
 
     # vmax to be determined
     if not vmax:
-        pc = min(pc, on - 1.0)
-        dp = on - pc
+        pc = min(pc, pn - 1.0)
+        dp = pn - pc
         x = 0.6 * (1 - dp / 215)
         bs = (
             -4.4e-5 * dp**2
@@ -2802,21 +2802,21 @@ def wpr_holland2008(
             * (1 + 0.00285 * abs(phi) ** 1.35)
             * vmaxkmh**1.81
         )
-        output = on - dp
+        output = pn - dp
 
     return output
 
 
 # Definition to fit Holland 2010 wind field
 def fit_wind_field_holland2010(
-    vmax, rmax, pc, vtreal, phit, on, phi_spiral, lat, dpdt, obs, wrad
+    vmax, rmax, pc, vtreal, phit, pn, phi_spiral, lat, dpdt, obs, wrad
 ):
     # Discussion
     # shouldnt we have a switch to only calibrate vt and phi_a for observed radii
-    # what about limits on these variables
+    # what about limits pn these variables
     # OK with xn calibration
 
-    # function to fit wind field based on Holland 2010
+    # function to fit wind field based pn Holland 2010
     size_factor = 1  # noqa: F841
     phi = np.arange(90, -270 - 10, -10)  # radial angles (cartesian, degrees)
     rmax = rmax * 1000  # convert from km to m
@@ -2863,7 +2863,7 @@ def fit_wind_field_holland2010(
                 vmax,
                 pc,
                 rmax,
-                on,
+                pn,
                 vtreal,
                 phit,
                 lat,
@@ -2885,7 +2885,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -2904,7 +2904,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -2949,7 +2949,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -2968,7 +2968,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -3014,7 +3014,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -3033,7 +3033,7 @@ def fit_wind_field_holland2010(
                     vmax,
                     pc,
                     rmax,
-                    on,
+                    pn,
                     vtreal,
                     phit,
                     lat,
@@ -3074,13 +3074,13 @@ def fit_wind_field_holland2010(
 
 # definition to compute wind field
 def compute_wind_field(
-    r, phi, vmax, pc, rmax, on, vtreal, phit, lat, dpdt, phi_spiral, xn, vt, phia
+    r, phi, vmax, pc, rmax, pn, vtreal, phit, lat, dpdt, phi_spiral, xn, vt, phia
 ):
     # Discussion is asymmetry account for properly? I believe there should be a factor in front of ux/vy
     vms = vmax - vt
 
     # compute wind profile (vr and pr)
-    [vr, pr] = holland2010(r, vms, pc, on, rmax, dpdt, lat, vtreal, xn)
+    [vr, pr] = holland2010(r, vms, pc, pn, rmax, dpdt, lat, vtreal, xn)
 
     wind_speed = np.zeros((phi.shape[0], r.shape[0]))
     wind_to_direction_cart = np.zeros((phi.shape[0], r.shape[0]))

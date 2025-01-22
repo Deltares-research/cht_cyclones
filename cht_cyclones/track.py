@@ -327,7 +327,7 @@ class TropicalCycloneTrack:
                     # estimate this: vmax is in m/s
                     vmax = wpr_holland2008(
                         pc=self.gdf.pc[it],
-                        on=config["background_pressure"],
+                        pn=config["background_pressure"],
                         phi=coords_it.y,
                         dpcdt=self.gdf.dpcdt[it],
                         vt=np.sqrt(self.gdf.vtx[it] ** 2 + self.gdf.vty[it] ** 2),
@@ -347,7 +347,7 @@ class TropicalCycloneTrack:
                     if self.unit_intensity == "knots":
                         pc = wpr_holland2008(
                             vmax=self.gdf.vmax[it] * knots_to_ms,
-                            on=self.background_pressure,
+                            pn=self.background_pressure,
                             phi=coords_it.y,
                             dpcdt=self.gdf.dpcdt[it],
                             vt=np.sqrt(self.gdf.vtx[it] ** 2 + self.gdf.vty[it] ** 2),
@@ -356,7 +356,7 @@ class TropicalCycloneTrack:
                     else:
                         pc = wpr_holland2008(
                             vmax=self.gdf.vmax[it],
-                            on=config["background_pressure"],
+                            pn=config["background_pressure"],
                             phi=coords_it.y,
                             dpcdt=self.gdf.dpcdt[it],
                             vt=np.sqrt(self.gdf.vtx[it] ** 2 + self.gdf.vty[it] ** 2),

@@ -523,7 +523,7 @@ sub read_jtwc_file {
     my $is_analysis = 0;
     my ($nrec, $irad, $idist, $long_range, $extra, $iend) = (0) x 6;
     my ($yr0,$mon0,$day0,$hr0,$min0,$sec0,$Dd,$Dh,$Dm,$Ds,$yr_now,$mon_now,$day_now,$hr_now,$min_now,$sec_now) = (0) x 16;
-    my ($temp, $rmw_orig, $rmw0, $rmw1, $rmw2, $i, $j, $ilat, $ilon, $sum, $num, @avg_dist, @rad_speed, @dist, @sorted_dist, @value, $yyyymm);
+    my ($temp, $rmw_orig, $rmw0, $rmw1, $rmw2, $i, $j, $ilat, $ilon, $sum, $num, @avg_dist, @rad_speed, @dist, @sorted_dist, @valu, $yyyymm);
     #  TC direction, speed parameters:
     my ($inm, @start, @end, @tau, $dir, $km, @distnc, @reverse_s, @reverse_d, @r100, $ir100, $i3d, $k, $ind_sio, $previous);
     my $nm2km = 1.852;      # Conversion for nmi to km
@@ -938,8 +938,8 @@ sub read_jtwc_file {
             #  all data records.  Therefore, as avg_dist varies in size, value will be zero-
             #  padded at the end (i.e., the right hand side).  This may not work if avg_dist
             #  increases, then decreases.
-            @value = (0) x $maxlen;
-            @value[0..$#avg_dist] = @avg_dist;
+            @valu = (0) x $maxlen;
+            @valu[0..$#avg_dist] = @avg_dist;
 
             #  Print data to a temp file.
             #if (($#avg_dist+1) < 1) {
@@ -949,7 +949,7 @@ sub read_jtwc_file {
             #} else {
             #print MYTEMP "$lat[$nrec] $lon[$nrec] $msw_kt[$nrec] $rmw[$nrec] $rmw0 $rmw1 $rmw2 @avg_dist\n";
             #}
-            #print MYTEMP "$lat[$nrec] $lon[$nrec] $msw_kt[$nrec] $rmw[$nrec] $rmw0 $rmw1 $rmw2 @value\n";
+            #print MYTEMP "$lat[$nrec] $lon[$nrec] $msw_kt[$nrec] $rmw[$nrec] $rmw0 $rmw1 $rmw2 @valu\n";
 
             #  Now increment the index & clear local arrays.
             #my @increment_line = split ' ', $_;
@@ -1283,16 +1283,16 @@ sub find_best_value {
 
     my ($val, $failsafe, $v1, $v2, $v3) = @_;
     my @candidates = ();
-    my ($value, $cand, $sum);
+    my ($valu, $cand, $sum);
     my $div = 3;  # Started with 4
     my $small = $val/$div;
     my $good = -9999;
 
-    foreach $value ($v1, $v2, $v3) {
-        if ($value > $val || $value < $small) {
-            $value = 0;
+    foreach $valu ($v1, $v2, $v3) {
+        if ($valu > $val || $valu < $small) {
+            $valu = 0;
         } else {
-            push @candidates, ($value);
+            push @candidates, ($valu);
         }
     }
 
@@ -1305,7 +1305,7 @@ sub find_best_value {
         $good = $candidates[0];
     } else {
         #  Mean of candidate values.
-        foreach $value (@candidates) { $sum += $value; }
+        foreach $valu (@candidates) { $sum += $valu; }
         #$good = $candidates[0];
         $good = $sum/$cand;
     }

@@ -9,8 +9,7 @@ class TropicalCycloneTrack:
         pass
 
     def read(self, filename, fmt):
-        
-            # If ddb_cyc
+        # If ddb_cyc
         if fmt == "ddb_cyc":
             # Read all the lines first
             with open(filename, "r") as f:
@@ -371,7 +370,6 @@ class TropicalCycloneTrack:
 
         else:
             raise Exception("This file format is not supported as read track!")
-
 
     def write(self, filename, fmt):
         # If ddb_cyc

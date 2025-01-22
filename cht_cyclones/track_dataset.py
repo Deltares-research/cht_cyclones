@@ -11,9 +11,8 @@ import toml
 import xarray as xr
 from botocore import UNSIGNED
 from botocore.client import Config
-from cht_utils import fileops as fo
 
-from .tropical_cyclone_refactored import TropicalCyclone
+from cht_cyclones.tropical_cyclone_refactored import TropicalCyclone
 
 
 class CycloneTrackDataset:
@@ -83,7 +82,7 @@ class CycloneTrackDataset:
             self.long_name = tml["longname"]
         # Make sure there is always a long_name
         if self.long_name == "":
-            self.long_name = self.name        
+            self.long_name = self.name
 
     def download(self):
         if self.s3_bucket is None:
@@ -91,13 +90,19 @@ class CycloneTrackDataset:
         # Check if download is needed
         for file in self.files:
             if not os.path.exists(os.path.join(self.path, file)):
-                s3_client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+                s3_client = boto3.client(
+                    "s3", config=Config(signature_version=UNSIGNED)
+                )
                 break
         # Get all files defined in the toml file
         for file in self.files:
             if not os.path.exists(os.path.join(self.path, file)):
                 print(f"Downloading {file} from track dataset {self.name} ...")
-                s3_client.download_file(self.s3_bucket, f"{self.s3_key}/{file}", os.path.join(self.path, file))
+                s3_client.download_file(
+                    self.s3_bucket,
+                    f"{self.s3_key}/{file}",
+                    os.path.join(self.path, file),
+                )
 
     def _read_ibtracs(self, file_name):
         """
@@ -276,7 +281,9 @@ class CycloneTrackDataset:
                     shapely.geometry.LineString(np.transpose(np.stack((lon, lat))))
                 )
                 iok.append(ind)
-                description.append(self.storm_name[ind] + " (" + str(self.year[ind]) + ")")
+                description.append(
+                    self.storm_name[ind] + " (" + str(self.year[ind]) + ")"
+                )
 
         # Create geopandas dataframe
         gdf = gpd.GeoDataFrame(crs=4326, geometry=geom)

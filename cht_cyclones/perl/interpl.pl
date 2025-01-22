@@ -1,7 +1,7 @@
 #*************************************************************************
 sub interp {
 #
-#   Purpose:  To linearly interpolate between 2 points to 
+#   Purpose:  To linearly interpolate between 2 points to
 #             determine the xval corresponding to the input
 #             yval.
 #
@@ -10,7 +10,7 @@ sub interp {
 #             yval   -- Y-coordinate of point to be determined
 #             x1     -- X-coordinate of first point
 #             x2     -- X-coordinate of second point
-# 
+#
 #   Output:  xval    -- X-coordinate calculated by interpolation
 #
 #*************************************************************************

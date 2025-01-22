@@ -91,7 +91,7 @@
 #               combine_data to combine best track and warning file data into the
 #               original warning data arrays in chronological order; added a call
 #               to sub. combine_data to the main program in the IF block in which
-#               sub. read_best_track is called; removed the IF block in sub. 
+#               sub. read_best_track is called; removed the IF block in sub.
 #               write_tc_parameters in the main FOR loop, since all data are now
 #               combined in the original data arrays; moved the 'use Math::Trig'
 #               pragma from sub. read_jtwc_file to the main program; move the code
@@ -157,7 +157,7 @@
 #               a call to sub. write_ext_best_track (in best_track_routines.pl), to
 #               add support for output in NRL extended best track format; updated
 #               the help content.  (RSL)
-#  22 Feb 2013  Added new paramters (@pres_outer_iso, @rad_outer_iso, @eye_diam,
+#  22 Feb 2013  Added new parameters (@pres_outer_iso, @rad_outer_iso, @eye_diam,
 #               @pres_outer_iso_w, @rad_outer_iso_w, @eye_diam_w) to the main
 #               program for extended best track output; added an IF block to the
 #               main program to call sub. read_std_best_track if extended best
@@ -291,7 +291,7 @@ if ($want_best == 1) {
     #warn "BEST Track support...File is $best_track_file\n";
 
     #  Check whether output is extended best track format; if so, then read all input best track records.
-    $READ_ALL = 1; 
+    $READ_ALL = 1;
     ($envpress,*latt,*long,*RMW,*MSLP,*datestr,*max_wind_kt,*storm_name,*R34,*R34_Rad,*R50,*R50_Rad,
         *R64,*R64_Rad,*bt_datenum,*pres_outer_iso,*rad_outer_iso,*eye_diam) = read_std_best_track($READ_ALL, $best_track_file);
 
@@ -428,7 +428,7 @@ sub read_jtwc_file {
     #  Syntax: read_jtwc_file($infile);
     #  where:  $infile is the name of the input warning filewp9411web_201107242300.txt
     #
-    #  Calls:  
+    #  Calls:
     #
     #  Called by: main program
     #
@@ -523,7 +523,7 @@ sub read_jtwc_file {
     my $is_analysis = 0;
     my ($nrec, $irad, $idist, $long_range, $extra, $iend) = (0) x 6;
     my ($yr0,$mon0,$day0,$hr0,$min0,$sec0,$Dd,$Dh,$Dm,$Ds,$yr_now,$mon_now,$day_now,$hr_now,$min_now,$sec_now) = (0) x 16;
-    my ($temp, $rmw_orig, $rmw0, $rmw1, $rmw2, $i, $j, $ilat, $ilon, $sum, $num, @avg_dist, @rad_speed, @dist, @sorted_dist, @valu, $yyyymm);
+    my ($temp, $rmw_orig, $rmw0, $rmw1, $rmw2, $i, $j, $ilat, $ilon, $sum, $num, @avg_dist, @rad_speed, @dist, @sorted_dist, @value, $yyyymm);
     #  TC direction, speed parameters:
     my ($inm, @start, @end, @tau, $dir, $km, @distnc, @reverse_s, @reverse_d, @r100, $ir100, $i3d, $k, $ind_sio, $previous);
     my $nm2km = 1.852;      # Conversion for nmi to km
@@ -689,7 +689,7 @@ sub read_jtwc_file {
 
             #  If this is past the analysis data, then calculate the TC speed & direction.
             if ($nrec > 0) {
-                ($tc_dir[$nrec], $tc_speed[$nrec]) = storm_dir_speed($lon[$nrec-1], $lat[$nrec-1], 
+                ($tc_dir[$nrec], $tc_speed[$nrec]) = storm_dir_speed($lon[$nrec-1], $lat[$nrec-1],
                     $lon[$nrec], $lat[$nrec], $tau[$nrec-1], $tau[$nrec]);
 
 
@@ -933,13 +933,13 @@ sub read_jtwc_file {
             #print "  MaxLen = $maxlen.\n";
             if ($DEBUG) { warn @dash, "\n"; }
 
-            #  Resize the valu array, then fill it with the current values of avg_dist.
-            #  The length of valu should always be maxlen, which should be constant for
-            #  all data records.  Therefore, as avg_dist varies in size, valu will be zero-
+            #  Resize the value array, then fill it with the current values of avg_dist.
+            #  The length of value should always be maxlen, which should be constant for
+            #  all data records.  Therefore, as avg_dist varies in size, value will be zero-
             #  padded at the end (i.e., the right hand side).  This may not work if avg_dist
             #  increases, then decreases.
-            @valu = (0) x $maxlen;
-            @valu[0..$#avg_dist] = @avg_dist;
+            @value = (0) x $maxlen;
+            @value[0..$#avg_dist] = @avg_dist;
 
             #  Print data to a temp file.
             #if (($#avg_dist+1) < 1) {
@@ -948,8 +948,8 @@ sub read_jtwc_file {
             #  print MYTEMP "$lat[$nrec] $lon[$nrec] $msw_kt[$nrec] $rmw[$nrec] $rmw0 $rmw1 $rmw2 @avg_dist 0.0\n";
             #} else {
             #print MYTEMP "$lat[$nrec] $lon[$nrec] $msw_kt[$nrec] $rmw[$nrec] $rmw0 $rmw1 $rmw2 @avg_dist\n";
-            #} 
-            #print MYTEMP "$lat[$nrec] $lon[$nrec] $msw_kt[$nrec] $rmw[$nrec] $rmw0 $rmw1 $rmw2 @valu\n";
+            #}
+            #print MYTEMP "$lat[$nrec] $lon[$nrec] $msw_kt[$nrec] $rmw[$nrec] $rmw0 $rmw1 $rmw2 @value\n";
 
             #  Now increment the index & clear local arrays.
             #my @increment_line = split ' ', $_;
@@ -958,7 +958,7 @@ sub read_jtwc_file {
                 my @prev = split ' ', $previous;
                 if ($DEBUG) { warn "----Incrementing NREC; Prev = $prev[0], INPUT = $_"; }
                 #if ($prev[0] ne "EXTRATROPICAL") {
-                $nrec++; 
+                $nrec++;
                 if ($DEBUG) { warn "----Now, NREC = $nrec\n"; }
                 #}
             }
@@ -1038,7 +1038,7 @@ sub wind_pressure_relationship {
     #    Christian, P. Caroff, and P. McCrone, 2006: The Dvorak tropical cyclone intensity
     #    estimation technique: A satellite-based method that has entured for over 30 years,
     #    Bull. Amer. Meteor. Soc., 87, 1195-1210.
-    # 
+    #
     #  The spreadsheet file "Knaff_Zehr_WPR.xls" (renamed from "Knaff_Zehr WPR.xls")
     #  was received via email on 16 Feb 2012 from:
     #  LT Matthew Watts
@@ -1283,16 +1283,16 @@ sub find_best_value {
 
     my ($val, $failsafe, $v1, $v2, $v3) = @_;
     my @candidates = ();
-    my ($valu, $cand, $sum);
+    my ($value, $cand, $sum);
     my $div = 3;  # Started with 4
     my $small = $val/$div;
     my $good = -9999;
 
-    foreach $valu ($v1, $v2, $v3) {
-        if ($valu > $val || $valu < $small) {
-            $valu = 0;
+    foreach $value ($v1, $v2, $v3) {
+        if ($value > $val || $value < $small) {
+            $value = 0;
         } else {
-            push @candidates, ($valu);
+            push @candidates, ($value);
         }
     }
 
@@ -1305,7 +1305,7 @@ sub find_best_value {
         $good = $candidates[0];
     } else {
         #  Mean of candidate values.
-        foreach $valu (@candidates) { $sum += $valu; }
+        foreach $value (@candidates) { $sum += $value; }
         #$good = $candidates[0];
         $good = $sum/$cand;
     }
@@ -1319,7 +1319,7 @@ sub check_longitude {
     #  This subroutine checks the array of longitudes for any that have opposite signs
     #  (i.e., cross the date line from +180 to -180 or vice versa), and change the
     #  hemisphere of any that are found.  Changes are made according to the signs of
-    #  the majority of longitudes; e.g., if most are postive but a few are negative,
+    #  the majority of longitudes; e.g., if most are positive but a few are negative,
     #  then the negative values are changed.
     #
     #  Syntax: check_longitude();
@@ -1347,7 +1347,7 @@ sub check_longitude {
             #  Negative; increment the counter & store the index.
             $nneg++;
             push @index_neg, ($i);
-        } 
+        }
     }
 
     #  Check whether there are both signs in the longitudes.
@@ -1426,7 +1426,7 @@ sub read_best_track {
     #               (RSL)
     #  04 May 2012  Added parameters for the storm translational speed & direction and
     #               date number; added a call to sub. storm_dir_speed; added a call to
-    #               Mktime for the date nuber.  (RSL)
+    #               Mktime for the date number.  (RSL)
     #  07 May 2012  Added a line to skip records with too few parameters.  (RSL)
     #  08 May 2012  Replaced zero with $MISS_D3D (1.0e30), which is the Delft3D missing
     #               value code, where arrays were initialized with place-holders; added
@@ -1612,7 +1612,7 @@ sub read_best_track {
     #  print "lons = @lon\n";
     #  print "names = @name\n";
 
-    #(*latt, *long, *RMW, *MSLP, *datestr, *Max_Wind, *StormName) = read_best_track($infile,$outfile);  
+    #(*latt, *long, *RMW, *MSLP, *datestr, *Max_Wind, *StormName) = read_best_track($infile,$outfile);
     return(\$env_press, \@lat, \@lon, \@rmw, \@mslp, \@dtg, \@vmax_kt, \@name,
         \@r34, \@r34_dist, \@r50, \@r50_dist, \@r64, \@r64_dist, \@sdir, \@sspd, \@dnum);
 }
@@ -1814,4 +1814,3 @@ sub storm_dir_speed {
     return($dir, $speed);
 
 }
-

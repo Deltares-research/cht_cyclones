@@ -58,7 +58,7 @@ sub read_std_best_track {
     #               (RSL)
     #  04 May 2012  Added parameters for the storm translational speed & direction and
     #               date number; added a call to sub. storm_dir_speed; added a call to
-    #               Mktime for the date nuber.  (RSL)
+    #               Mktime for the date number.  (RSL)
     #  07 May 2012  Added a line to skip records with too few parameters.  (RSL)
     #  08 May 2012  Replaced zero with $MISS_D3D (1.0e30), which is the Delft3D missing
     #               value code, where arrays were initialized with place-holders; added
@@ -126,7 +126,7 @@ sub read_std_best_track {
 
         # Skip records with too few parameters if not all of the inputs are wanted.
         if ($#line < 17 && $all_flag == 0) { next; }
-        #next if $#line < 17;    
+        #next if $#line < 17;
 
         #if ($. < 11) { print "Line = "; for my $w (@line) {print " $w\n";}; print "$starz\n"; }
         #  Check whether this is a duplicate record (i.e., has an R50/R64 for the previous record
@@ -267,8 +267,8 @@ sub read_std_best_track {
 sub write_cyc {
     #
     # write_cyc
-    # 
-    # This perl subroutine writes the cyc file from the best track file and the 
+    #
+    # This perl subroutine writes the cyc file from the best track file and the
     # forecast file
     #
     # Syntax: (
@@ -277,7 +277,7 @@ sub write_cyc {
     # Revision History:
     # 19 May 2022  Initial coding. Jay Veeramony, NRL 7322
     #
-    # 
+    #
     #*******************************************************************************
 
     #  Parse the input parameters.  Note that arrays are input as references
@@ -367,7 +367,7 @@ sub write_cyc {
 
         if (length($$month[$i]) == 1) { $$month[$i] = "0" . $$month[$i]; }
         if (length($$day[$i])   == 1) { $$day[$i]   = "0" . $$day[$i];   }
-        if (length($$time[$i])  == 1) { 
+        if (length($$time[$i])  == 1) {
             $$time[$i] = "0" . $$time[$i] . "0000";
         }  elsif ( length($$time[$i]) == 2 ) {
             $$time[$i] = $$time[$i] . "0000";
@@ -384,9 +384,9 @@ sub write_cyc {
         $$r100[$i][$i50][0], $$r100[$i][$i50][1], $$r100[$i][$i50][2], $$r100[$i][$i50][3],
         $$r100[$i][$i64][0], $$r100[$i][$i64][1], $$r100[$i][$i64][2], $$r100[$i][$i64][3],
         $$r100[$i][$i100][0], $$r100[$i][$i100][1], $$r100[$i][$i100][2], $$r100[$i][$i100][3];
- 
+
     }
-        
+
     #  Close the output file.
     close(TRK);
 

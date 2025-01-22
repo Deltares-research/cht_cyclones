@@ -82,7 +82,7 @@
 #               is zero (i.e., for the 1st advisory's output).  (RSL)
 #  21 Jul 2006  Fixed bug in 3rd date algorithm in sub. process_data.  (RSL)
 #  12 Sep 2006  Defined $MeanRMW in sub. DUMP; modified sub. print_data to set any
-#               zero RMW value to the mean; changed ambient air pressure, $pn, in sub.
+#               zero RMW value to the mean; changed ambient air pressure, $on, in sub.
 #               process_data to 1013.25 (std. atmosphere).  (RSL)
 #  28 Jul 2011  Added sub. wind_pressure_relationship to better estimate minimum
 #               central pressure given wind speed (Dvorak technique); replaced the def.
@@ -118,14 +118,14 @@
 #               added '$storm_id' and '$warning_number' parambers to sub. process_data;
 #               upgraded sub. get_radius to add parameters & code to load the output 3-D
 #               wind radii array; updated the call to sub. print_track_file to include
-#               the environmental pressure ($pn) and to use the new 3-D wind radii
+#               the environmental pressure ($on) and to use the new 3-D wind radii
 #               array (@r100_65_50_35_3D).  (RSL)
 #  18 May 2012  Added '$warn_id' for the storm warning ID (based on the input file
 #               name without the extension).  (RSL)
 #  20 Aug 2012  Upgraded sub. print_data: added writing of the storm name to a file
 #               named 'cyclone_name.txt' for use by an external plotting script.  (RSL)
 #  05 Sep 2012  Changed all debug 'print' statements to 'warn'; upgraded sub. get_radius
-#               to always use the ratio method to calculte the RMW value, and to set
+#               to always use the ratio method to calculate the RMW value, and to set
 #               the RMW to the (average) minimum of R34/R50/R64 - 5 nmi if it is greater
 #               than or equal to that value, and changed the algorithm to use the
 #               square of the ratio; updated a warning message in sub. DUMP; added
@@ -160,7 +160,7 @@
 #               $EBT_MISS (missing value code), @rad_outer_iso (radius of the
 #               outermost closed isobar) for the extended best track output option;
 #               added @pres_outer_iso to store the background pressure in an array for
-#               the best track output option; replaced $pn with @pres_outer_iso in the
+#               the best track output option; replaced $on with @pres_outer_iso in the
 #               call to sub. write_ext_best_track.  (RSL)
 #  07 Feb 2013  Added new array @storm_id_strs to store the storm ID string & pass
 #               to sub. write_ext_best_track for the extended best track option.
@@ -237,7 +237,7 @@ my $nm2km = 1.852; 		# Conversion for nmi to km
 if (length($btfile) > 0) {
    #  This is the case, so set the flag to 1.
    $bt_input = 1;
-   if ($DEBUG) { 
+   if ($DEBUG) {
       warn " BEST TRACK INPUT....\n";
    }
 }
@@ -246,7 +246,7 @@ if (length($btfile) > 0) {
 process_data($infile);
 
 # Creating the cyclone file name; it will be put in the same directory as the forecast
-# The format is 2 digit basin, 2 digit storm number, 2 digit year “_” storm name _ forecast time.cyc 
+# The format is 2 digit basin, 2 digit storm number, 2 digit year “_” storm name _ forecast time.cyc
 my @tmp = split(" ", $tc_name); #Get just the storm name (i.e. remove "Hurricane" "Typoon" etc)
 $sname = uc($tmp[$#tmp]); #Change name to upper case
 $sid = substr(${storm_id},0,4); # This is the 2-dgit basin + storm number for NHC forecasts
@@ -263,7 +263,7 @@ if ($DEBUG) { warn "In MAIN: InFile: $infile  \n";
    warn " Trkfile = $trkfile, NumRadBins = $num_rad_bins, NumDirBins = $num_dir_bins, TC_Rad = $tc_radius.\n";
 }
 
-if ($DEBUG) { 
+if ($DEBUG) {
    warn "In MAIN: TC_Dir = @tc_dir; TC_Speed = @tc_speed; For_Day = @for_day.\n";
    warn "TC_Dir has ", scalar @tc_dir, " elems.\n";
    warn "R100 array (1st group): $r100_65_50_35[0][0] $r100_65_50_35[0][1] $r100_65_50_35[0][2] $r100_65_50_35[0][3].\n";
@@ -295,14 +295,14 @@ $start_time_data = mktime(0,0,$time,$day,$nmonth-1,$year-1900);
 my @date = ();
 for my $i (0..$#for_year) {
    $date[$i] = sprintf("%4d%2.2d%2.2d", $for_year[$i], $for_nmonth[$i], $for_day[$i]);
-   #  Append "00" minutes to time 
+   #  Append "00" minutes to time
    $for_time[$i] = sprintf("%2.2d00", $for_time[$i]);
    #  Change longitude from [0,360] to [-180,180] if needed.
    if ($for_lon[$i] > 180) { $for_lon[$i] -= 360; }
    if ($for_rad[$i] == 0) { $for_rad[$i] = $MeanRMW; }
    #  Convert RMW from km to nmi for non-PCTides output.
    $for_rad[$i] /= $nm2km;
-   $pres_outer_iso[$i] = $pn;
+   $pres_outer_iso[$i] = $on;
    $storm_id_strs[$i] = $storm_id;
    if ($i == 0) {
       $eye_diam[$i] = $eye_diameter;
@@ -320,7 +320,7 @@ if (!@rad_outer_iso) {
 #  Check whether the @pres_outer_iso array has any values.
 if (!@pres_outer_iso) {
    #  It has none, so load it with background pressure values.
-   @pres_outer_iso = ($pn) x scalar(@for_rad);   # Load this array
+   @pres_outer_iso = ($on) x scalar(@for_rad);   # Load this array
 }
 
 #  Check the input best track file flag.
@@ -328,7 +328,7 @@ if ($bt_input == 1) {
    #  Read the input best track file, using the routine that depends on the file type.
    #  Standard JTWC or NHC ATCF best track file
    #  Check whether output is extended best track format; if so, then read all input best track records.
-   $READ_ALL = 1; 
+   $READ_ALL = 1;
    ($envpress,*latt,*long,*RMW,*MSLP,*datestr,*max_wind_kt,*storm_name,*R34,*R34_Rad,*R50,*R50_Rad,
       *R64,*R64_Rad,*bt_datenum,*pres_outer_isobar,*rad_outer_isobar,*storm_id,*eye_diameter) = read_std_best_track($READ_ALL,$btfile);
 
@@ -440,7 +440,7 @@ if ($MeanRMW <= 0) {
    #warn "MeanRMW = $MeanRMW\n";
 }
 
-#  Check the output format.    
+#  Check the output format.
 #  Flag is -1, so print extended best track file.
 #write_ext_best_track($trkfile,\@storm_id_strs,$tc_name,\@eye_diam,\@pres_outer_iso,\@rad_outer_iso,\@for_year,\@for_nmonth,\@for_day,\@for_time,\@for_lat,\@for_lon,\@for_winds,\@for_rad,\@r100_65_50_35_3D,\@for_cp);
 write_cyc($trkfile,$tc_name,\@eye_diam,\@pres_outer_iso,\@rad_outer_iso,
@@ -496,7 +496,7 @@ sub get_user_input {
     #  22 Feb 2013  Added support for an input best track file name.  (RSL)
     #  29 May 2022  WES.EXE is redundant; pared down to output only the cyclone
     #               file
-    #  
+    #
     #********************************************************************************
 
     #  Check the command line arguments.
@@ -585,7 +585,7 @@ sub process_data {
     #  18 May 2012  Added '$warn_id' as the warning ID string based on the input file
     #               name without the extension.  (RSL)
     #  05 Sep 2012  Changed all debug 'print' statements to 'warn' statements; put a
-    #               debug warn statment inside an IF block (it wasn't in an IF block
+    #               debug warn statement inside an IF block (it wasn't in an IF block
     #               previously); added "\n" to the Holland B warnings.  (RSL)
     #  01 Nov 2012  Commented-out the IF block where the eye diameter, if present,
     #               was used for the RMW.  (RSL)
@@ -633,7 +633,7 @@ sub process_data {
     #  Constants for output file header:
     $rho = 1.15;            # Air density, kg/m^3
     $e = exp(1);            # Base of natural log
-    $pn = 1013.25;          # Ambient air pressure (far from edge of storm), mb - Originally 1005
+    $on = 1013.25;          # Ambient air pressure (far from edge of storm), mb - Originally 1005
     $mb2npm2 = 100;         # Conversion factor, mb to N/m^2
     $kn2mps = 0.514444;     # Conversion factor, knots to m/s
     $BMin = 1;              # Minimum valid Holland "B" value
@@ -661,7 +661,7 @@ sub process_data {
     @dayyear = (0,31,59,90,120,151,181,212,243,273,304,334);
     #Original:  $lastline = "";
 
-    #  Get current system time, and define assiciated time & date variables.
+    #  Get current system time, and define associated time & date variables.
     ($nowsec,$nowmin,$nowhour,$nowmday,$nowmon,$nowyear,$nowwday,$nowyday,$nowisdst) = gmtime;
     if ($nowyear>=94) {$nowyear+=1900;} else {$nowyear+=2000;}
     if (isleap($nowyear)) {
@@ -725,17 +725,17 @@ sub process_data {
             &DUMP();
             $idump++;
             #         &RESET();
-        } 
+        }
         if (/unsubscribe/i && $idump == 0) {  # End of message
             &DUMP();
             $idump++;
             #         &RESET();
-        } 
+        }
         if (eof && $idump == 0) {  # End of file
             &DUMP();
             $idump++;
             #         &RESET();
-        } 
+        }
 
         if (/^[\*\s]*((WT|TP|WH|AB)[A-Z][A-Z]\d{1,2})\s+([A-Z]{4})\s+(\d{6}|DDHHMM)(\s+[A-Z]{3}[\*\s]*|[\*\s]*)$/i) { # Start of Message
             #Original:         &DUMP();
@@ -772,7 +772,7 @@ sub process_data {
                 if ($namarr[1]=~/\((.*)\)/) {
                     $secondname = $1;
                     if (&ISDEPRESSION($name) && !&ISDEPRESSION($secondname)) {
-                        $temp = $name;         # Use the seconday name if its better
+                        $temp = $name;         # Use the secondary name if its better
                         $name = $secondname;
                         $secondname = $temp;
                     }
@@ -830,9 +830,9 @@ sub process_data {
             if ($cp < $CP_MIN) {
                 warn "  WARNING: Central Pressure \($cp\) < Minimum \($CP_MIN mb\); resetting to Minimum.\n";
                 $cp = $CP_MIN;
-            } elsif ($cp > $pn) {
-                warn "  WARNING: Central Pressure \($cp\) > Ambient \($pn mb\); resetting to Ambient.\n";
-                $cp = $pn;
+            } elsif ($cp > $on) {
+                warn "  WARNING: Central Pressure \($cp\) > Ambient \($on mb\); resetting to Ambient.\n";
+                $cp = $on;
             }
         }
 
@@ -886,10 +886,10 @@ sub process_data {
                 $time = 12;
             } else {
                 $timelen = length($1);
-                if ($timelen < 3) {$time = $1; $minute="00";} 
+                if ($timelen < 3) {$time = $1; $minute="00";}
                 elsif ($timelen == 3) {
                     $time=substr($1,0,1);
-                    $minute=substr($1,1,2); 
+                    $minute=substr($1,1,2);
                 } else {$time=substr($1,0,2); $minute=substr($1,2,2);}
 
             }
@@ -952,7 +952,7 @@ sub process_data {
         #warn "Analysis: Radius = $radius; RMW0 = $rmw0; RMW1 = $rmw1; RMW2 = $rmw2.\n";
         if ($DEBUG) {warn "Analysis: Radius = $radius; RMW0 = $rmw0; RMW1 = $rmw1; RMW2 = $rmw2.\n"; }
 
-        # Get forcasts of type "12HR VT     25/1200Z 22.1N 167.6W    25 KTS"
+        # Get forecasts of type "12HR VT     25/1200Z 22.1N 167.6W    25 KTS"
         if (m#(\d*)HR VT(\D*)(\d*)/(\d*)Z(\D*)(\d*\.\d*)( N| S|N|S)(\D*)(\d*\.\d*)( E| W|E|W)(\D*)(\d*)(\D*)(KTS|KT|MPH)#i) {
             $forecast_active = 1;  # this is a forecast
             $latstr = $6.$7;
@@ -1044,7 +1044,7 @@ sub process_data {
             }  # end if($_
             $fi++;
         }
-        # Get forcasts of type "FORECAST VALID  25/1200Z 22.1N 167.6W "
+        # Get forecasts of type "FORECAST VALID  25/1200Z 22.1N 167.6W "
         #                       OUTLOOK VALID 24/1800Z 27.0N  69.5W
         if (m#[FORECAST|OUTLOOK] +VALID(\D*)(\d+)/(\d+)Z(\D*)(\d+\.\d*)( N| S|N|S)(\D*)(\d+\.\d*)( E| W|E|W)#i) {
             $forecast_active = 1;  # this is a forecast
@@ -1296,14 +1296,14 @@ sub process_data {
             $latitude = $2;
             $latns = substr($3,0,1);
             if ($DEBUG) {warn "*** $latitude $latns\n";}
-            #last switch; 
+            #last switch;
         }
         if (/LONGITUDE +(\D*)(\d*\.\d*) +(WEST|EAST)/i && !$forecast_active) {    # Position
             $longitude = $2;
             $lonew = substr($3,0,1);
             if (uc($lonew) eq "W") { $longitude = 360 - $longitude; }
             if ($DEBUG) {warn "*** $longitude $lonew\n";}
-            #last switch; 
+            #last switch;
         }
         if ($doubleline =~ /WIND(\D*)(\d*)(\D*)(KT|KTS|MPH|KNOT)/i && !($doubleline =~ /REPORT/i) && ($winds eq "???" || $forecast_active)) {
             if ($forecast_active) {  # Assumes that forecast position came first
@@ -1441,7 +1441,7 @@ sub process_data {
                     $for_cp[$nforecast] = $cp;
                 } else {
                     #  Invalid, so use ambient.
-                    $for_cp[$nforecast] = $pn;
+                    $for_cp[$nforecast] = $on;
                 }
             } else {
                 #  Past the 1st forecast, so check the previous value.
@@ -1450,7 +1450,7 @@ sub process_data {
                     $for_cp[$nforecast] = $for_cp[$nforecast-1];
                 } else {
                     #  Invalid, so use ambient.
-                    $for_cp[$nforecast] = $pn;
+                    $for_cp[$nforecast] = $on;
                 }
             }
         }
@@ -1460,7 +1460,7 @@ sub process_data {
     #  Calculate Holland B parameter based on current observations.  Warn the user
     #  if B is invalid, and reset the value to either the min or max valid value.
     #  Calculation is performed only if not appending to the output flag.
-    if ($appendflag != 1 && $winds > 0 && $cp != $pn) { $B = ($rho  * $e  * (($winds * $kn2mps)**2)) / (abs($pn - $cp) * $mb2npm2); }
+    if ($appendflag != 1 && $winds > 0 && $cp != $on) { $B = ($rho  * $e  * (($winds * $kn2mps)**2)) / (abs($on - $cp) * $mb2npm2); }
     if ($B > $BMax) {
         warn "  NOTICE: Holland B parameter exceeds $BMax; resetting to $BMax.\n";
         $B = $BMax;
@@ -1743,8 +1743,8 @@ sub RESET {
     # The following hold data for the actual observation
     $time="???"; $minute="00"; $dow="???"; $month="???"; $nmonth="???"; $day="???"; $year="???";
     $latitude="???"; $longitude="???"; $latns="???"; $lonew="???";
-    $course="???"; $speed="???"; 
-    $pressure="???"; 
+    $course="???"; $speed="???";
+    $pressure="???";
     $winds="???"; $gusts="???";
     $name="???"; $type="???";
     $wmoheader="???";
@@ -1784,10 +1784,10 @@ sub DUMP {
     $MeanRMW = (20/2) * $nm2km;	# Mean eye diameter is ~20 nmi (http://www.srh.weather.gov/hgx/tropical/geninfo.htm)
 
     # Dump the actual data to STDOUT
-    if (&ISNUMBER($year) && &ISNUMBER($nmonth) && &ISNUMBER($day) && 
+    if (&ISNUMBER($year) && &ISNUMBER($nmonth) && &ISNUMBER($day) &&
         &ISNUMBER($time) &&
-        &ISNUMBER($latitude) && &ISNUMBER($longitude) && 
-        $latns ne "???" && $latns=~/\w+/ && 
+        &ISNUMBER($latitude) && &ISNUMBER($longitude) &&
+        $latns ne "???" && $latns=~/\w+/ &&
         $lonew ne "???" && $lonew=~/\w+/ &&
         $name ne "???" && $name=~/\w+/ && $nbadname<=0 &&
         $name ne "EXERCISE" &&
@@ -1817,7 +1817,7 @@ sub DUMP {
             warn "$outstr\n";
         }
 
-        # Now dump the forecast data to STDOUT.  Note: No forecasts are ouput if
+        # Now dump the forecast data to STDOUT.  Note: No forecasts are output if
         # there was no actual observation.  This is a safety feature to ensure
         # that garbled messages are not output.
 
@@ -1827,12 +1827,12 @@ sub DUMP {
             $nforecast=$#for_winds;
         }
         for ($i=1; $i<=$nforecast; $i++) {
-            if (&ISNUMBER($for_year[$i]) && &ISNUMBER($for_nmonth[$i]) && 
+            if (&ISNUMBER($for_year[$i]) && &ISNUMBER($for_nmonth[$i]) &&
                 &ISNUMBER($for_day[$i]) && &ISNUMBER($for_time[$i]) &&
-                &ISNUMBER($for_lat[$i]) && &ISNUMBER($for_lon[$i]) && 
+                &ISNUMBER($for_lat[$i]) && &ISNUMBER($for_lon[$i]) &&
                 $for_latns[$i] ne "???" && $for_latns[$i]=~/\w+/ &&
                 $for_lonew[$i] ne "???" && $for_lonew[$i]=~/\w+/ &&
-                &ISNUMBER($for_winds[$i]) && 
+                &ISNUMBER($for_winds[$i]) &&
                 $for_name[$i] ne "???" && $for_name[$i]=~/\w+/ && !$exercise) {
                 if ($DEBUG) {warn "dumping forecast $i\n";}
                 $for_name[$i] =~ s/\(//;
@@ -1854,7 +1854,7 @@ sub DUMP {
                 $forlonew = $for_lonew[$i];
                 $forwinds = $for_winds[$i];
                 $forgusts = $for_gusts[$i];
-                $forname = $for_name[$i]; 
+                $forname = $for_name[$i];
                 $fordoy = $dayyear[$fornmonth-1]+$forday;
                 #Original:            if ($fornmonth > 2 && ($foryear % 4) == 0) {$fordoy++;}  # leap year
                 if ($fornmonth > 2 && isleap($foryear)) {$fordoy++;}  # leap year
@@ -1877,7 +1877,7 @@ sub DUMP {
             }
         }
 
-        #  Calcluate central pressures (CPs) at forecast periods based on wind speeds & decimal dates.
+        #  Calculate central pressures (CPs) at forecast periods based on wind speeds & decimal dates.
         if ($nforecast >= 2) {
             if ($DEBUG) {warn "Estimating forecast CPs...\n"; }
 
@@ -1900,9 +1900,9 @@ sub DUMP {
                 if ($for_cp[$i] < $CP_MIN) {
                     warn "  WARNING: Forecast Central Pressure \($for_cp[$i]\) < Minimum \($CP_MIN mb\); resetting to Minimum.\n";
                     $for_cp[$i] = $CP_MIN;
-                } elsif ($for_cp[$i] > $pn) {
-                    warn "  WARNING: Forecast Central Pressure \($for_cp[$i]\) > Ambient \($pn mb\); resetting to Ambient.\n";
-                    $for_cp[$i] = $pn;
+                } elsif ($for_cp[$i] > $on) {
+                    warn "  WARNING: Forecast Central Pressure \($for_cp[$i]\) > Ambient \($on mb\); resetting to Ambient.\n";
+                    $for_cp[$i] = $on;
                 }
 
                 ##print "DDate: $ddate CP: $cp  WInds: $winds For_Wind:  $for_winds[$i]  Ratio: $ratio:  For_CP: $for_cp[$i].\n";
@@ -1954,7 +1954,7 @@ sub GETNMONTH {
     #********************************************************************************
     local($nowyear,$nowmonth,$nowday,$day) = @_;
 
-    # Set the month number given the day of month and the current year, 
+    # Set the month number given the day of month and the current year,
     # current month, and current day.  Returns adjusted year and month.
 
     # $nowyear is like 1994
@@ -1964,7 +1964,7 @@ sub GETNMONTH {
 
     # Use same month as now if within +7 or -20 days from now.  Not symmetric
     # because there is not likely to be a time far in the future (the
-    # longest forecast should be 3 days), but there is likely to be a time 
+    # longest forecast should be 3 days), but there is likely to be a time
     # in the past (old observation).
 
     local($year,$month) = ($nowyear,$nowmonth);
@@ -1975,7 +1975,7 @@ sub GETNMONTH {
         $year++;
         $month=1;
     }
-    if (($day-$nowday) > 7) {  # Is a month border crossed backwards? 
+    if (($day-$nowday) > 7) {  # Is a month border crossed backwards?
         $month--;
     }
     if ($month < 1) {
@@ -2045,8 +2045,8 @@ sub ISDEPRESSION {
         $newname =~ /^twenty$/i ||
         $newname =~ /^thirty\-/i ||
         $newname =~ /^thirty$/i ||
-        $newname =~ /^fourty\-/i ||
-        $newname =~ /^fourty$/i ||
+        $newname =~ /^forty\-/i ||
+        $newname =~ /^forty$/i ||
         $newname =~ /^forty\-/i ||
         $newname =~ /^forty$/i ||
         $newname =~ /^fifty\-/i ||
@@ -2323,4 +2323,3 @@ sub storm_velocity {
 
     return($speed, $dir);
 }
-

@@ -7,7 +7,7 @@ import pandas as pd
 import shapely
 import xarray as xr
 
-from .tropical_cyclone import TropicalCyclone
+from cht_cyclones.tropical_cyclone import TropicalCyclone
 
 
 class CycloneTrackDatabase:
@@ -77,7 +77,7 @@ class CycloneTrackDatabase:
         """
 
         # Read in database
-        self.ds = xr.open_dataset(file_name)
+        self.ds = xr.load_dataset(file_name)
 
         # Convert to numpy arrays
         self.lon = self.ds["lon"].values[:]

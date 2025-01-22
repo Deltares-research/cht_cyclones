@@ -119,7 +119,7 @@ class CycloneTrackDataset:
         """
 
         # Read in dataset
-        self.ds = xr.open_dataset(file_name)
+        self.ds = xr.load_dataset(file_name)
 
         # Convert to numpy arrays
         self.lon = self.ds["lon"].values[:]

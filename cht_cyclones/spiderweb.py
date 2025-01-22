@@ -25,7 +25,7 @@ class TropicalCycloneSpiderweb:
         # Get file extension
         fmt = filename.split(".")[-1]
         if fmt == "nc":
-            self.ds = xr.open_dataset(filename)
+            self.ds = xr.load_dataset(filename)
         elif fmt == "spw":
             self.read_spiderweb_ascii(filename)
 

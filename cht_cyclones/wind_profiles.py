@@ -15,7 +15,7 @@ def holland2010(r, vmax, pc, pn, rmax, dpdt, lat, vt, xn):
     etc etc.
 
     """
-    # calculate Holland b parameter based on Holland (2008) - assume Dvorak method
+    # calculate Holland b parameter based pn Holland (2008) - assume Dvorak method
     vms = vmax
     dp = max(pn - pc, 1)
     x = 0.6 * (1 - dp / 215)
@@ -244,7 +244,3 @@ def wpr_holland2008(
         output = pn - dp
 
     return output
-
-
-
-

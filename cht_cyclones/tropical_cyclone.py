@@ -16,7 +16,6 @@ Module supports two classes
 
 # Standard Library Imports
 import os
-import time
 from datetime import datetime, timedelta
 
 # Third-Party Library Imports
@@ -307,7 +306,7 @@ class TropicalCyclone:
                             gdf["geometry"] = [Point(x, y)]  # Assign the new geometry
                             gdf.vmax = vmax
                             gdf.pc = pc
-                            gdf.RMW = rmax
+                            gdf.RMW = rmax  # noqa: F821
                             if R35_NE > 0:
                                 gdf.R35_NE = R35_NE
                             if R35_SE > 0:
@@ -456,19 +455,19 @@ class TropicalCyclone:
                         # Other things
                         if len(s) > 17:
                             if s[17]:
-                                pressure_last_closed_isobar = float(s[17])
+                                pressure_last_closed_isobar = float(s[17])  # noqa: F841
                             if s[18]:
-                                radius_last_closed_isobar = float(s[18])
+                                radius_last_closed_isobar = float(s[18])  # noqa: F841
                             if s[19]:
                                 try:
                                     if float(s[19]) > 0:
                                         rmax = float(s[19])
                                 except ValueError:
                                     print("Error: Unable to convert to float for RMW")
-                                    rmax = -999
+                                    rmax = -999  # noqa: F841
                             if len(s) >= 28:
                                 if s[27]:
-                                    name = s[27]
+                                    name = s[27]  # noqa: F841
 
             # Done with this => rest so track looks good
             self.track = self.track.reset_index(drop=True)
@@ -1408,7 +1407,7 @@ class TropicalCyclone:
             pc = self.track.pc[it]
             rmax = self.track.RMW[it]
             pn = self.background_pressure
-            rhoa = self.rho_air
+            rhoa = self.rho_air  # noqa: F841
             xn = 0.5
             coords = self.track.geometry[it]
             lat = coords.y
@@ -1434,7 +1433,6 @@ class TropicalCyclone:
                 "wind_speed": wind_speed,
                 "wind_from_direction": wind_to_direction_cart,
                 "pressure_drop": pressure_drop,
-                "pressure_drop": wind_speed,
                 "rainfall": rainfall_rate,
             }
 
@@ -1552,7 +1550,7 @@ class TropicalCyclone:
             wind_speed = wind_speed * missing_factor
 
             # Add rainfall (if we want)
-            if self.include_rainfall == True:
+            if self.include_rainfall:
                 # Add rainfall
                 if self.rainfall_relationship == "ipet":
                     # IPET is a simple rainfall model relating pressure to rainfall rate
@@ -1649,19 +1647,19 @@ class TropicalCyclone:
         fid.write(format2.format("spw_rad_unit", "=", "m"))
         if merge_frac:
             fid.write(format2.format("spw_merge_frac", "=", str(merge_frac)))
-        if self.include_rainfall == True:
+        if self.include_rainfall:
             fid.write(format2.format("n_quantity", "=", "4"))
         else:
             fid.write(format2.format("n_quantity", "=", "3"))
         fid.write(format2.format("quantity1", "=", "wind_speed"))
         fid.write(format2.format("quantity2", "=", "wind_from_direction"))
         fid.write(format2.format("quantity3", "=", "p_drop"))
-        if self.include_rainfall == True:
+        if self.include_rainfall:
             fid.write(format2.format("quantity4", "=", "precipitation"))
         fid.write(format2.format("unit1", "=", "m s-1"))
         fid.write(format2.format("unit2", "=", "degree"))
         fid.write(format2.format("unit3", "=", "Pa"))
-        if self.include_rainfall == True:
+        if self.include_rainfall:
             fid.write(format2.format("unit4", "=", "mm/h"))
 
         # Go over the time steps
@@ -1706,7 +1704,7 @@ class TropicalCyclone:
             np.savetxt(fid, wind_speed, fmt="%9.2f")
             np.savetxt(fid, wind_from_direction, fmt="%9.2f")
             np.savetxt(fid, pressure_drop, fmt="%9.2f")
-            if self.include_rainfall == True:
+            if self.include_rainfall:
                 np.savetxt(fid, rainfall_rate, fmt="%9.2f")
 
         # We are done here
@@ -1759,7 +1757,7 @@ class TropicalCyclone:
             zlib=True,
             complevel=9,
         )
-        if self.include_rainfall == True:
+        if self.include_rainfall:
             precipitation_var = root_grp.createVariable(
                 "precipitation",
                 "f8",
@@ -1806,7 +1804,7 @@ class TropicalCyclone:
         pressure_var.units = "Pa"
 
         # Rainfall is optional
-        if self.include_rainfall == True:
+        if self.include_rainfall:
             precipitation_var.standard_name = "precipitation"
             precipitation_var.long_name = "total precipitation rate"
             precipitation_var.units = "mm/hr"
@@ -1864,7 +1862,7 @@ class TropicalCyclone:
         longitude_eye_var[:] = longitude_eye_data
         latitude_eye_var[:] = latitude_eye_data
         pressure_var[:] = pressure_data
-        if self.include_rainfall == True:
+        if self.include_rainfall:
             precipitation_var[:] = precipitation_data
         wind_x_var[:] = wind_x_data
         wind_y_var[:] = wind_y_data
@@ -1887,7 +1885,7 @@ class TropicalCycloneEnsemble:
             0  # if in calibration - seed value is 1, otherwise random/default
         )
 
-        # Error statistics - based on NHC of 2018-2021
+        # Error statistics - based pn NHC of 2018-2021
         self.mean_abs_cte24 = (
             19.0397 * nm_to_m
         )  # mean absolute error in cross-track error (CTE) in meter
@@ -1925,7 +1923,7 @@ class TropicalCycloneEnsemble:
 
     # Compute ensemble member
     def compute_ensemble(self, number_of_realizations=None):
-        # First set time variables based on best track
+        # First set time variables based pn best track
         if self.debug == 1:
             print("Started with making ensembles")
         self.number_of_realizations = number_of_realizations
@@ -2021,7 +2019,7 @@ class TropicalCycloneEnsemble:
                 rmax["numbers"] = np.sort(np.squeeze(rmax["numbers"])) / nm_to_km
                 absolute_difference = np.abs(rmax["numbers"] - best_track_rmw2[index])
                 nearest_index = np.argmin(absolute_difference)
-                nearest_value = rmax["numbers"][nearest_index]
+                # nearest_value = rmax["numbers"][nearest_index]
                 quantiles_RMW.append(nearest_index / len(rmax["numbers"]))
 
                 # For AR35
@@ -2034,7 +2032,7 @@ class TropicalCycloneEnsemble:
                             dr35["numbers"] - best_track_ar352[index]
                         )
                         nearest_index = np.argmin(absolute_difference)
-                        nearest_value = rmax["numbers"][nearest_index]
+                        # nearest_value = rmax["numbers"][nearest_index]
                         quantiles_AR35.append(nearest_index / len(rmax["numbers"]))
                     else:
                         # Simply fill the quantiles to ensure correct time series
@@ -2216,12 +2214,12 @@ class TropicalCycloneEnsemble:
                     ensemble_lat[it, :] = best_track_lat2[it] + dy
 
                 elif self.position_method == 1:
-                    # Compute new position based on best track position and ate/cte
+                    # Compute new position based pn best track position and ate/cte
                     lon0 = best_track_lon2[items0]
                     lat0 = best_track_lat2[items0]
                     lon1 = best_track_lon2[it]
                     lat1 = best_track_lat2[it]
-                    # Compute track heading based on latitude / longitude of two points
+                    # Compute track heading based pn latitude / longitude of two points
                     fwd_azimuth, back_azimuth, distance = geodesic.inv(
                         lon0, lat0, lon1, lat1
                     )
@@ -2280,21 +2278,21 @@ class TropicalCycloneEnsemble:
                                     ensemble_ar35[it, index] / nm_to_km
                                 )  # km to nautical mile
 
-                # Check if TC is on land and include maxima
-                if self.check_land == True:
+                # Check if TC is pn land and include maxima
+                if self.check_land:
                     # Compute distance
                     shapefile_polygon = r"g:\02_forecasting\_TMP\polygon_land.shp"
                     shapefile_polyline = r"g:\02_forecasting\_TMP\polyline_land.shp"
 
                     # Compute performance
-                    start_time = time.time()
+                    # start_time = time.time()
                     analysis_results = analyze_points_with_shapefile(
                         shapefile_polygon,
                         shapefile_polyline,
                         ensemble_lat[it, :],
                         ensemble_lon[it, :],
                     )
-                    end_time = time.time()
+                    # end_time = time.time()
                     # print("Execution Time:", end_time - start_time, "seconds")
 
                     # Compute maximum
@@ -2337,7 +2335,7 @@ class TropicalCycloneEnsemble:
                 ensemble_rmw[it, :] = best_track_rmw2[it]
                 ensemble_ar35[it, :] = best_track_ar352[it]
 
-        # Apply spatial smoothing on track data
+        # Apply spatial smoothing pn track data
         factor = round(12 / (dtd * 24))
         if factor > 1:
             for nn in range(self.number_of_realizations):
@@ -2579,7 +2577,7 @@ def holland2010(r, vms, pc, pn, rmax, dpdt, lat, vt, xn):
     etc etc.
 
     """
-    # calculate Holland b parameter based on Holland (2008) - assume Dvorak method
+    # calculate Holland b parameter based pn Holland (2008) - assume Dvorak method
     dp = max(pn - pc, 1)
     x = 0.6 * (1 - dp / 215)
     if np.isnan(dpdt):
@@ -2815,11 +2813,11 @@ def fit_wind_field_holland2010(
 ):
     # Discussion
     # shouldnt we have a switch to only calibrate vt and phi_a for observed radii
-    # what about limits on these variables
+    # what about limits pn these variables
     # OK with xn calibration
 
-    # function to fit wind field based on Holland 2010
-    size_factor = 1
+    # function to fit wind field based pn Holland 2010
+    size_factor = 1  # noqa: F841
     phi = np.arange(90, -270 - 10, -10)  # radial angles (cartesian, degrees)
     rmax = rmax * 1000  # convert from km to m
     r = np.arange(5000, 500000 + 5000, 5000)
@@ -2837,7 +2835,7 @@ def fit_wind_field_holland2010(
     dxn = 0.01
     dvt = 0.5
     dphia = 5
-    nrad = 2
+    nrad = 2  # noqa: F841
     nobs = 0
 
     for irad in range(np.size(obs["quadrants_radii"], 0)):
@@ -3138,7 +3136,7 @@ def compute_mean_error(r, w, obs, wrad):
             if not np.isnan(obs["quadrants_radii"][irad, iquad]):
                 err[iquad, irad] = vrad - wrad[irad]
             else:
-                err[iquad, irad] = np.NAN
+                err[iquad, irad] = np.nan
 
     # Get error values
     mask = ~np.isnan(err)  # Create the mask

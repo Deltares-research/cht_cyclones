@@ -7,10 +7,10 @@ from geojson import Feature, FeatureCollection
 from geopandas import GeoDataFrame
 from pyproj import CRS, Geod
 from scipy.interpolate import CubicSpline, interp1d
-from shapely.geometry import LineString, MultiLineString, Point, mapping
+from shapely.geometry import LineString, Point
 
-from .utils import gdf_to_geojson_js, gdf_to_pli
-from .wind_profiles import wind_radii_nederhoff, wpr_holland2008
+from cht_cyclones.utils import gdf_to_geojson_js, gdf_to_pli
+from cht_cyclones.wind_profiles import wind_radii_nederhoff, wpr_holland2008
 
 knots_to_ms = float(0.51444)
 nm_to_km = float(1.852)
@@ -36,7 +36,7 @@ class TropicalCycloneTrack:
             self.gdf = gdf
             self.apply_tau(tau)
             return None
-        except:
+        except Exception:
             pass
 
         # Try to read trk file (COAMPS-TC)
@@ -47,7 +47,7 @@ class TropicalCycloneTrack:
             self.fix_nan_vmax()
             self.apply_tau(tau)
             return None
-        except:
+        except Exception:
             pass
 
         # Try to read ddb cyc file
@@ -57,7 +57,7 @@ class TropicalCycloneTrack:
             self.apply_tau(tau)
             # Do not do anything with name
             return config
-        except:
+        except Exception:
             pass
 
         raise Exception("Error: could not read file " + filename)
@@ -65,7 +65,9 @@ class TropicalCycloneTrack:
     def apply_tau(self, tau):
         """Apply tau to the track, i.e. start later if timec in track is smaller than tau"""
         if tau > 0:
-            tstart = datetime.strptime(self.gdf.datetime[0], dateformat_module) + timedelta(hours=tau)
+            tstart = datetime.strptime(
+                self.gdf.datetime[0], dateformat_module
+            ) + timedelta(hours=tau)
             self.shorten(tstart=tstart)
 
     def fix_nan_vmax(self):
@@ -85,16 +87,15 @@ class TropicalCycloneTrack:
             # Put values back in gdf
             for it in range(len(self.gdf)):
                 if np.isnan(self.gdf.vmax[it]):
-                    print("Warning! Replacing vmax = NaN in track with interpolated value at it = " + str(it))
+                    print(
+                        "Warning! Replacing vmax = NaN in track with interpolated value at it = "
+                        + str(it)
+                    )
                     self.gdf.loc[it, "vmax"] = s.values[it]
 
-    def write(self,
-              filename,
-              format="cyc",
-              config=None,
-              name=None,
-              include_header=True):
-
+    def write(
+        self, filename, format="cyc", config=None, name=None, include_header=True
+    ):
         # Make a copy of the track and replace NaN with -999.0
         gdf = self.gdf.fillna(-999.0)
 
@@ -102,7 +103,9 @@ class TropicalCycloneTrack:
             if config is None:
                 print("Error: no configuration file provided")
                 return
-            write_ddb_cyc(filename, gdf, config, name, self.unit_intensity, self.unit_radii)
+            write_ddb_cyc(
+                filename, gdf, config, name, self.unit_intensity, self.unit_radii
+            )
         elif format == "cyc":
             write_cyc(filename, gdf, include_header=include_header)
         else:
@@ -112,19 +115,22 @@ class TropicalCycloneTrack:
     def convert_units_imperial_to_metric(self, config):
         # Convert wind speeds
         # from  knots   - typically 1-minute averaged
-        # to    m/s     - we account for conversion here        
+        # to    m/s     - we account for conversion here
         if (self.unit_intensity == "knots") and (self.unit_radii == "nm"):
-
             # Convert wind radii
             for it in range(len(self.gdf)):
                 if self.gdf.vmax[it] > 0.0:
-                    self.gdf.loc[it, "vmax"] = self.gdf.vmax[it] * knots_to_ms * config["wind_conversion_factor"]
+                    self.gdf.loc[it, "vmax"] = (
+                        self.gdf.vmax[it]
+                        * knots_to_ms
+                        * config["wind_conversion_factor"]
+                    )
                 else:
-                    self.gdf.loc[it, "vmax"] = np.nan    
+                    self.gdf.loc[it, "vmax"] = np.nan
                 if self.gdf.rmw[it] > 0.0:
                     self.gdf.loc[it, "rmw"] = self.gdf.rmw[it] * nm_to_km
                 else:
-                    self.gdf.loc[it, "rmw"] = np.nan    
+                    self.gdf.loc[it, "rmw"] = np.nan
                 # R35
                 if self.gdf.r35_ne[it] > 0.0:
                     self.gdf.loc[it, "r35_ne"] = self.gdf.r35_ne[it] * nm_to_km
@@ -171,7 +177,7 @@ class TropicalCycloneTrack:
                 if self.gdf.r65_ne[it] > 0.0:
                     self.gdf.loc[it, "r65_ne"] = self.gdf.r65_ne[it] * nm_to_km
                 else:
-                    self.gdf.loc[it, "r65_ne"]= np.nan
+                    self.gdf.loc[it, "r65_ne"] = np.nan
 
                 if self.gdf.r65_se[it] > 0.0:
                     self.gdf.loc[it, "r65_se"] = self.gdf.r65_se[it] * nm_to_km
@@ -217,14 +223,13 @@ class TropicalCycloneTrack:
         """Computes forward speed and dpcdt and store these in track geodataframe"""
 
         # Assign variables to geopandas dataframe
-        zero_list   = [0.0 for _ in range(len(self.gdf))]
+        zero_list = [0.0 for _ in range(len(self.gdf))]
         self.gdf = self.gdf.assign(vtx=zero_list)
         self.gdf = self.gdf.assign(vty=zero_list)
         self.gdf = self.gdf.assign(dpcdt=zero_list)
 
         # Go over time steps
         for it in range(len(self.gdf)):
-
             # Get basics
             datetime_it = datetime.strptime(self.gdf.datetime[it], dateformat_module)
             coords_it = self.gdf.geometry[it]
@@ -237,7 +242,6 @@ class TropicalCycloneTrack:
                 geofacx = 111320 * np.cos(coords_it.y * np.pi / 180)
 
             if it == 0:
-
                 # Forward
                 datetime_forward = datetime.strptime(
                     self.gdf.datetime[it + 1], dateformat_module
@@ -250,7 +254,6 @@ class TropicalCycloneTrack:
                 dpc = self.gdf.pc[it + 1] - self.gdf.pc[it]
 
             elif it == len(self.gdf) - 1:
-
                 # Backward
                 datetime_backward = datetime.strptime(
                     self.gdf.datetime[it - 1], dateformat_module
@@ -263,7 +266,6 @@ class TropicalCycloneTrack:
                 dpc = self.gdf.pc[it] - self.gdf.pc[it - 1]
 
             else:
-
                 # Forward
                 datetime_forward = datetime.strptime(
                     self.gdf.datetime[it + 1], dateformat_module
@@ -348,9 +350,7 @@ class TropicalCycloneTrack:
                             pn=self.background_pressure,
                             phi=coords_it.y,
                             dpcdt=self.gdf.dpcdt[it],
-                            vt=np.sqrt(
-                                self.gdf.vtx[it] ** 2 + self.gdf.vty[it] ** 2
-                            ),
+                            vt=np.sqrt(self.gdf.vtx[it] ** 2 + self.gdf.vty[it] ** 2),
                             rhoa=self.rho_air,
                         )
                     else:
@@ -359,9 +359,7 @@ class TropicalCycloneTrack:
                             pn=config["background_pressure"],
                             phi=coords_it.y,
                             dpcdt=self.gdf.dpcdt[it],
-                            vt=np.sqrt(
-                                self.gdf.vtx[it] ** 2 + self.gdf.vty[it] ** 2
-                            ),
+                            vt=np.sqrt(self.gdf.vtx[it] ** 2 + self.gdf.vty[it] ** 2),
                             rhoa=config["rho_air"],
                         )
 
@@ -491,9 +489,11 @@ class TropicalCycloneTrack:
             t = t0 - timedelta(hours=hours_before)
             self.add_point(t)
         if hours_after is not None:
-            t1 = datetime.strptime(self.gdf.datetime[len(self.gdf) - 1], dateformat_module)
+            t1 = datetime.strptime(
+                self.gdf.datetime[len(self.gdf) - 1], dateformat_module
+            )
             t = t1 + timedelta(hours=hours_after)
-            self.add_point(t)    
+            self.add_point(t)
 
     def shorten(self, tstart=None, tend=None):
         """Shorten the track to a certain time period."""
@@ -509,15 +509,14 @@ class TropicalCycloneTrack:
                 t = datetime.strptime(row.datetime, dateformat_module)
                 if t > tend:
                     times_to_remove.append(t)
-                    # self.remove_point(time=t)            
+                    # self.remove_point(time=t)
         if len(times_to_remove) > 0:
             for t in times_to_remove:
                 self.remove_point(time=t)
 
     def resample(self, dt, method="spline"):
-
         """Resample the track to a new time step. Returns new gdf. By default uses a spline interpolation for the track points."""
-        
+
         # Get the first and last time
         t0 = datetime.strptime(self.gdf.datetime[0], dateformat_module)
         t1 = datetime.strptime(self.gdf.datetime[len(self.gdf) - 1], dateformat_module)
@@ -538,12 +537,15 @@ class TropicalCycloneTrack:
 
         return gdf
 
-    def add_point(self, time: datetime,
-                  lon: float=-9999.0,
-                  lat: float=-9999.0,
-                  method: str="spline"):
+    def add_point(
+        self,
+        time: datetime,
+        lon: float = -9999.0,
+        lat: float = -9999.0,
+        method: str = "spline",
+    ):
         """Insert a point at a certain time and location (optional)"""
-            
+
         # Find index where to insert
         # Check first if time is before the first time
         t0 = datetime.strptime(self.gdf.datetime[0], dateformat_module)
@@ -579,9 +581,12 @@ class TropicalCycloneTrack:
         elif index == len(self.gdf):
             self.gdf = pd.concat([self.gdf, gdf_point], ignore_index=True)
         else:
-            self.gdf = pd.concat([self.gdf.iloc[:index], gdf_point, self.gdf.iloc[index:]], ignore_index=True)            
+            self.gdf = pd.concat(
+                [self.gdf.iloc[:index], gdf_point, self.gdf.iloc[index:]],
+                ignore_index=True,
+            )
 
-        self.gdf = self.gdf.set_crs(crs)    
+        self.gdf = self.gdf.set_crs(crs)
         self.gdf = self.gdf.reset_index(drop=True)
 
     def remove_point(self, index=None, time=None):
@@ -618,13 +623,21 @@ class TropicalCycloneTrack:
                 self.remove_point(time=t)
 
         # Concatenate the two tracks
-        self.gdf = pd.concat([self.gdf, track1.gdf], ignore_index=True).reset_index(drop=True)
-
+        self.gdf = pd.concat([self.gdf, track1.gdf], ignore_index=True).reset_index(
+            drop=True
+        )
 
     def to_gdf(self, filename=None):
         """Make track GeoDataFrame and optionally write to file"""
 
-        categories = {33.0: "TD", 64.0: "TS", 83.0: "1", 96.0: "2", 113.0: "3", 137.0: "4"}
+        categories = {
+            33.0: "TD",
+            64.0: "TS",
+            83.0: "1",
+            96.0: "2",
+            113.0: "3",
+            137.0: "4",
+        }
 
         features = []
         points = []
@@ -632,7 +645,11 @@ class TropicalCycloneTrack:
         # First the track
         for ip in range(np.size(self.gdf.geometry.x)):
             points.append([self.gdf.geometry.x[ip], self.gdf.geometry.y[ip]])
-        features.append(Feature(geometry=LineString(coordinates=points), properties={"name": "No name"}))
+        features.append(
+            Feature(
+                geometry=LineString(coordinates=points), properties={"name": "No name"}
+            )
+        )
 
         # Then the points
         for ip in range(np.size(self.gdf.geometry.x)):
@@ -663,7 +680,7 @@ class TropicalCycloneTrack:
 
         gdf = GeoDataFrame().from_features(FeatureCollection(features))
 
-        # Write to file 
+        # Write to file
         if filename is not None:
             # Get extension of filename
             ext = os.path.splitext(filename)[-1]
@@ -677,11 +694,11 @@ class TropicalCycloneTrack:
             elif ext == ".geojson":
                 gdf.to_file(filename, driver="GeoJSON")
             elif ext == ".js":
-                gdf_to_geojson_js(gdf, filename, varname="track_data")   
+                gdf_to_geojson_js(gdf, filename, varname="track_data")
             elif ext == ".pli":
-                gdf_to_pli(gdf, filename)   
+                gdf_to_pli(gdf, filename)
 
-        return gdf    
+        return gdf
 
 
 def read_cyc(filename):
@@ -761,6 +778,7 @@ def read_cyc(filename):
     gdf = gdf.set_crs(crs=CRS(4326), inplace=True)
 
     return gdf
+
 
 def read_ddb_cyc(filename):
     # Old ddb cyc format
@@ -888,6 +906,7 @@ def read_ddb_cyc(filename):
 
     return gdf, config, name
 
+
 def read_trk(filename):
     # Read the track from a TRK file
 
@@ -899,7 +918,6 @@ def read_trk(filename):
 
     # Open the file
     with open(filename, "r") as fid:
-
         # Read line by line
         for s0 in fid:
             s0 = s0.strip()
@@ -907,7 +925,7 @@ def read_trk(filename):
                 continue
 
             vmax = np.nan
-            pc   = np.nan
+            pc = np.nan
             rmax = np.nan
             r35_ne = np.nan
             r35_se = np.nan
@@ -989,9 +1007,9 @@ def read_trk(filename):
                 # Other things
                 if len(s) > 17:
                     if s[17]:
-                        pressure_last_closed_isobar = float(s[17])
+                        pressure_last_closed_isobar = float(s[17])  # noqa: F841
                     if s[18]:
-                        radius_last_closed_isobar = float(s[18])
+                        radius_last_closed_isobar = float(s[18])  # noqa: F841
                     if s[19]:
                         try:
                             if float(s[19]) > 0:
@@ -1001,7 +1019,7 @@ def read_trk(filename):
                             rmax = np.nan
                     if len(s) >= 28:
                         if s[27]:
-                            name = s[27]
+                            name = s[27]  # noqa: F841
 
             if newtime > lasttime + np.timedelta64(1, "s"):
                 # New time point found
@@ -1010,9 +1028,9 @@ def read_trk(filename):
                 gdf_point = GeoDataFrame(geometry=[Point(x, y)])
                 # gdf_point["geometry"] = [Point(x, y)]  # Assign the new geometry
                 gdf_point["datetime"] = newtime.astype("O").strftime("%Y%m%d %H%M%S")
-                gdf_point["vmax"]   = np.nan
-                gdf_point["pc"]     = np.nan
-                gdf_point["rmw"]    = np.nan
+                gdf_point["vmax"] = np.nan
+                gdf_point["pc"] = np.nan
+                gdf_point["rmw"] = np.nan
                 gdf_point["r35_ne"] = np.nan
                 gdf_point["r35_se"] = np.nan
                 gdf_point["r35_sw"] = np.nan
@@ -1031,11 +1049,11 @@ def read_trk(filename):
                 gdf_point["r100_nw"] = np.nan
             else:
                 new_point = False
-                    
-            # Update all variables in gdf (when it is not the first one)                
+
+            # Update all variables in gdf (when it is not the first one)
             gdf_point["vmax"] = vmax
-            gdf_point["pc"]   = pc
-            gdf_point["rmw"]  = rmax
+            gdf_point["pc"] = pc
+            gdf_point["rmw"] = rmax
             if r35_ne > 0.0:
                 gdf_point["r35_ne"] = r35_ne
             if r35_se > 0.0:
@@ -1084,7 +1102,8 @@ def read_trk(filename):
 
     return gdf
 
-def write_cyc(filename, gdf, include_header=True):   
+
+def write_cyc(filename, gdf, include_header=True):
     """Write to cyc format"""
     with open(filename, "wt") as f:
         # Print header
@@ -1095,7 +1114,6 @@ def write_cyc(filename, gdf, include_header=True):
 
         # Print the actual track
         for i in range(len(gdf)):
-
             f.writelines(gdf.datetime[i].rjust(15))
             coords = gdf.geometry[i]
             f.writelines(str(round(coords.y, 2)).rjust(9))
@@ -1126,6 +1144,7 @@ def write_cyc(filename, gdf, include_header=True):
             f.writelines(str(round(gdf.r100_nw[i], 1)).rjust(9))
 
             f.writelines("\n")
+
 
 def write_ddb_cyc(filename, gdf, config, name, unit_intensity, unit_radii):
     """Write to 'old' Delft Dashboard cyc format"""
@@ -1150,19 +1169,13 @@ def write_ddb_cyc(filename, gdf, config, name, unit_intensity, unit_radii):
         f.writelines(
             "WindConversionFactor   " + str(config["wind_conversion_factor"]) + "\n"
         )
-        f.writelines(
-            "SpiderwebRadius        " + str(config["spiderweb_radius"]) + "\n"
-        )
-        f.writelines(
-            "NrRadialBins           " + str(config["nr_radial_bins"]) + "\n"
-        )
+        f.writelines("SpiderwebRadius        " + str(config["spiderweb_radius"]) + "\n")
+        f.writelines("NrRadialBins           " + str(config["nr_radial_bins"]) + "\n")
         f.writelines(
             "NrDirectionalBins      " + str(config["nr_directional_bins"]) + "\n"
         )
         f.writelines("EPSG                   WGS84\n")
-        f.writelines(
-            "UnitIntensity          " + str(unit_intensity) + "\n"
-        )
+        f.writelines("UnitIntensity          " + str(unit_intensity) + "\n")
         f.writelines("UnitWindRadii          " + str(unit_radii) + "\n")
 
         # Print header for the track
@@ -1175,7 +1188,6 @@ def write_ddb_cyc(filename, gdf, config, name, unit_intensity, unit_radii):
 
         # Print the actual track
         for i in range(len(gdf)):
-
             f.writelines(gdf.datetime[i].rjust(15))
             coords = gdf.geometry[i]
             f.writelines(str(round(coords.y, 2)).rjust(9))
@@ -1206,6 +1218,7 @@ def write_ddb_cyc(filename, gdf, config, name, unit_intensity, unit_radii):
             f.writelines(str(round(gdf.r100_nw[i], 1)).rjust(9))
 
             f.writelines("\n")
+
 
 def interpolate_track(gdf0, gdf1, method="linear"):
     """Interpolate track0 to track1. Only the times need to be provided in track1. The rest will be interpolated. Method is either 'linear' or 'spline'"""
@@ -1241,14 +1254,15 @@ def interpolate_track(gdf0, gdf1, method="linear"):
                 continue
             else:
                 gdf_point[key] = track1[key][index]
-        gdf = pd.concat([gdf, gdf_point], ignore_index=True)        
-    
+        gdf = pd.concat([gdf, gdf_point], ignore_index=True)
+
     gdf = gdf.set_crs(gdf0.crs, inplace=True)
 
     return gdf
 
+
 def interpolate_to_point(gdf, time: datetime, method="spline"):
-    """Return interpolated track point at a certain time"""            
+    """Return interpolated track point at a certain time"""
     # Find index where to insert
     # Check first if time is before the first time
     t0 = datetime.strptime(gdf.datetime[0], dateformat_module)
@@ -1264,7 +1278,7 @@ def interpolate_to_point(gdf, time: datetime, method="spline"):
     if index == 0:
         ipos = 0
         vfac = -1.0
-    elif index == len(gdf):       
+    elif index == len(gdf):
         ipos = len(gdf) - 1
         vfac = 1.0
 
@@ -1275,7 +1289,11 @@ def interpolate_to_point(gdf, time: datetime, method="spline"):
         gdf_point = gdf.iloc[[ipos]].copy()
 
         # Get time difference
-        dt = np.abs((time - datetime.strptime(gdf.datetime[ipos], dateformat_module)).total_seconds())
+        dt = np.abs(
+            (
+                time - datetime.strptime(gdf.datetime[ipos], dateformat_module)
+            ).total_seconds()
+        )
 
         # Get forward speed at the start
         vtx = vfac * gdf.vtx[ipos]
@@ -1287,7 +1305,7 @@ def interpolate_to_point(gdf, time: datetime, method="spline"):
 
         # Determine azimuth and direction
         az = 90.0 - np.arctan2(vty, vtx) * 180 / np.pi
-        dst = np.sqrt(vtx ** 2 + vty ** 2) * dt
+        dst = np.sqrt(vtx**2 + vty**2) * dt
 
         # Along track error shift
         lon1, lat1, backaz = geodesic.fwd(
@@ -1307,15 +1325,15 @@ def interpolate_to_point(gdf, time: datetime, method="spline"):
         gdf_point["datetime"] = [time.strftime(dateformat_module)]
         gdf_point = interpolate_track(gdf, gdf_point, method=method)
 
-    return gdf_point, index    
+    return gdf_point, index
+
 
 def gdf_to_dict(gdf):
-
     track0 = {}
 
     track0["datetime"] = []
-    track0["x"]        = []
-    track0["y"]        = []
+    track0["x"] = []
+    track0["y"] = []
     # Loop through columns in gdf
     for column in gdf.items():
         if column[0] == "datetime":

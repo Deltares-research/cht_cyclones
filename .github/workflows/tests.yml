@@ -10,6 +10,7 @@ on:
 
 jobs:
   test:
+    name: Test on ${{ matrix.os }} with Python ${{ matrix.python-version }}
     runs-on: "${{ matrix.os }}"
     defaults:
       run:
@@ -21,17 +22,25 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - name: Setup Micromamba
-        uses: mamba-org/provision-with-micromamba@main
         with:
-          python_version: ${{ matrix.python_version }}
-          cache-downloads: true
-          cache-env: true
-          environment-file: ./environment.yml
+          fetch-depth: 0
+
+      - name: Setup MiniConda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: cht_cyclones
+          auto-update-conda: true
+          channels: conda-forge
+
+      - name: Create environment
+        shell: bash -el {0}
+        run: |
+          conda create -n cht_cyclones python=${{ matrix.python-version }} -y
 
       - name: Install test dependencies
         run: |
-          pip install -e ".[tests]"
+          conda run -n cht_cyclones pip install -e ".[tests]"
+
       - name: Test with pytest
         run: |
-          pytest tests
+          conda run -n cht_cyclones pytest tests

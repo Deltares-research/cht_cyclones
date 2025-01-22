@@ -28,11 +28,11 @@ import pandas as pd
 import pyproj
 import toml
 
-from .ensemble import TropicalCycloneEnsemble
-from .fit_holland_2010 import fit_wind_field_holland2010
-from .spiderweb import TropicalCycloneSpiderweb
-from .track import TropicalCycloneTrack
-from .wind_profiles import holland2010
+from cht_cyclones.ensemble import TropicalCycloneEnsemble
+from cht_cyclones.fit_holland_2010 import fit_wind_field_holland2010
+from cht_cyclones.spiderweb import TropicalCycloneSpiderweb
+from cht_cyclones.track import TropicalCycloneTrack
+from cht_cyclones.wind_profiles import holland2010
 
 geodesic = pyproj.Geod(ellps="WGS84")
 
@@ -43,26 +43,23 @@ nm_to_km = float(1.852)
 nm_to_m = float(1.852) * 1000
 pd.options.mode.chained_assignment = None
 
+
 # Classes of the Tropical Cyclone module
 class TropicalCyclone:
     # Init
-    def __init__(self,
-                 name="no_name",
-                 track_file=None,
-                 config_file=None,
-                 tau=0):
+    def __init__(self, name="no_name", track_file=None, config_file=None, tau=0):
         """Initialize the Tropical Cyclone object"""
 
-        # Name         
+        # Name
         self.name = name
 
-        # Configuration  
+        # Configuration
         self.config_file = config_file
         self.set_default_config()
         if config_file is not None:
             self.read_config(config_file)
 
-        # Track    
+        # Track
         self.track = TropicalCycloneTrack()
         self.track_file = track_file
         if track_file is not None:
@@ -87,14 +84,16 @@ class TropicalCyclone:
         self.config["asymmetry_option"] = "schwerdt1979"
         self.config["phi_trans"] = 45.0
         self.config["include_rainfall"] = True
-        self.config["rho_air"] = 1.15  # used in the determination of parametric wind field
+        self.config["rho_air"] = (
+            1.15  # used in the determination of parametric wind field
+        )
         self.config["spiderweb_radius"] = 400.0  # radius in km
         self.config["nr_radial_bins"] = 100
         self.config["nr_directional_bins"] = 36
         self.config["tref"] = "20000101 000000"
 
     def read_config(self, config_file):
-        """Read the configuration file (toml format)""" 
+        """Read the configuration file (toml format)"""
         with open(config_file, "r") as f:
             cfg = toml.load(f)
         self.set_default_config()
@@ -103,12 +102,12 @@ class TropicalCyclone:
             self.config[key] = cfg[key]
 
     def write_config(self, config_file):
-        """Write the configuration file (toml format)"""        
+        """Write the configuration file (toml format)"""
         # Get path of the file
         path = os.path.dirname(config_file)
         if path and not os.path.exists(path):
             os.makedirs(path)
-        with open(config_file, "w") as file:            
+        with open(config_file, "w") as file:
             toml.dump(self.config, file)
 
     def read_track(self, filename):
@@ -136,7 +135,7 @@ class TropicalCyclone:
 
     # def resample_track(self, dt, method="spline"):
     #     """Resample the track to a new time step"""
-    #     self.track.resample(dt, method=method)        
+    #     self.track.resample(dt, method=method)
 
     def write_track(self, filename, **kwargs):
         # Write track file
@@ -145,7 +144,7 @@ class TropicalCyclone:
 
     def write_spiderweb(self, filename, **kwargs):
         # Write the spiderweb wind field to file
-        self.spiderweb.write(filename, **kwargs) 
+        self.spiderweb.write(filename, **kwargs)
 
     def extend_track(self, **kwargs):
         """Extend the track"""
@@ -157,14 +156,16 @@ class TropicalCyclone:
 
     def add_track_point(self, datetime, **kwargs):
         """Add a track point"""
-        self.track.add_point(datetime, **kwargs)    
+        self.track.add_point(datetime, **kwargs)
 
     def compute_metric_track(self):
         """Make a copy of the track and convert units to metric"""
         self.track_metric = copy.deepcopy(self.track)
         self.track_metric.convert_units_imperial_to_metric(self.config)
 
-    def compute_wind_field(self, filename=None, progress_bar=None, format="ascii", error_stats=False):
+    def compute_wind_field(
+        self, filename=None, progress_bar=None, format="ascii", error_stats=False
+    ):
         """Compute the wind field using the specified wind profile"""
 
         # 1. First make a copy of self.track. Units in this copy will be converted to metric. Also missing values will be estimated.
@@ -175,7 +176,7 @@ class TropicalCyclone:
         self.track_metric.compute_forward_speed()
 
         # 4. Estimate missing values
-        self.track_metric.estimate_missing_values(self.config) 
+        self.track_metric.estimate_missing_values(self.config)
 
         # # 3. cut off track points with low wind speeds at beginning and end of track + extent track
         # self.cut_off_low_wind_speeds()
@@ -185,12 +186,14 @@ class TropicalCyclone:
         # self.account_for_forward_speed()
 
         # 5. Initialize spiderweb grid
-        self.spiderweb.initialize_grid(self.track,
-                                       self.config["nr_radial_bins"],
-                                       self.config["nr_directional_bins"],
-                                       self.config["spiderweb_radius"] * 1000.0) # Creates the spiderweb arrays
+        self.spiderweb.initialize_grid(
+            self.track,
+            self.config["nr_radial_bins"],
+            self.config["nr_directional_bins"],
+            self.config["spiderweb_radius"] * 1000.0,
+        )  # Creates the spiderweb arrays
 
-        r = self.spiderweb.ds["range"].values / 1000 # in kilometres
+        r = self.spiderweb.ds["range"].values / 1000  # in kilometres
         phi = self.spiderweb.ds["azimuth"].values
 
         # 6. Go over time steps in the track
@@ -204,7 +207,11 @@ class TropicalCyclone:
                     return
 
             # Copy radii data from vectors to matrix
-            quadrants_speed = np.array([35.0, 50.0, 65.0, 100.0]) * knots_to_ms * self.config["wind_conversion_factor"]
+            quadrants_speed = (
+                np.array([35.0, 50.0, 65.0, 100.0])
+                * knots_to_ms
+                * self.config["wind_conversion_factor"]
+            )
             quadrants_radii = np.zeros((4, 4))
             quadrants_radii[0, 0] = self.track_metric.gdf.r35_ne[it]
             quadrants_radii[0, 1] = self.track_metric.gdf.r35_se[it]
@@ -237,7 +244,9 @@ class TropicalCyclone:
                 self.track_metric.gdf.vtx[it] ** 2 + self.track_metric.gdf.vty[it] ** 2
             )  # forward speed - magnitude
             phit = (
-                np.arctan2(self.track_metric.gdf.vty[it], self.track_metric.gdf.vtx[it]) * 180 / np.pi
+                np.arctan2(self.track_metric.gdf.vty[it], self.track_metric.gdf.vtx[it])
+                * 180
+                / np.pi
             )  # angle
             dpcdt = self.track_metric.gdf.dpcdt[it]  # pressure gradient in time
 
@@ -251,11 +260,11 @@ class TropicalCyclone:
 
             # We first determine vtcor and phicor. xn is set to 0.5. These may be overwritten if we have observations. By default we set phicor to 45 degrees.
             phia = self.config["phi_trans"] * np.pi / 180
-            xn   = 0.5
+            xn = 0.5
             # phi = self.config["phicor"] * np.pi / 180
             if self.config["asymmetry_option"] == "schwerdt1979":
                 # Schwerdt (1979)
-                a = vt / knots_to_ms # convert back to kts
+                a = vt / knots_to_ms  # convert back to kts
                 vtcor = 1.5 * a**0.63 * knots_to_ms
             elif self.config["asymmetry_option"] == "mvo":
                 vtcor = vt * 0.6
@@ -267,7 +276,6 @@ class TropicalCyclone:
             # Now check if fitting of the wind field is necessary
             # Holland et al. 2010
             if self.config["wind_profile"] == "holland2010":
-
                 # Count the number of observations, so that we know if we need to do a fitting of with Holland (2010)
                 fit_wind = False
                 n = 0
@@ -302,7 +310,10 @@ class TropicalCyclone:
                 xn = 0.6 * (1 - dp / 215)
 
             # Now compute the wind field (in goes vmax and vtcor). vr does not include asymmetry!
-            if self.config["wind_profile"] == "holland1980" or self.config["wind_profile"] == "holland2010":
+            if (
+                self.config["wind_profile"] == "holland1980"
+                or self.config["wind_profile"] == "holland2010"
+            ):
                 vrel = vmax - vtcor
                 [vr, pr] = holland2010(r, vrel, pc, pn, rmax, dpcdt, latitude, vt, xn)
             else:
@@ -310,7 +321,6 @@ class TropicalCyclone:
 
             # Loop over the directions
             for iphi in range(len(phi)):
-
                 # Place wind speed
                 wind_speed[:, iphi] = vr
 
@@ -331,15 +341,23 @@ class TropicalCyclone:
             vnorm = np.zeros(np.shape(wind_speed)) + 1.0
             u_prop = vtcor * np.cos((phit + phia) * np.pi / 180)
             v_prop = vtcor * np.sin((phit + phia) * np.pi / 180)
-            wind_x = wind_speed * np.cos(wind_to_direction_cart * np.pi / 180) + u_prop * vnorm
-            wind_y = wind_speed * np.sin(wind_to_direction_cart * np.pi / 180) + v_prop * vnorm
+            wind_x = (
+                wind_speed * np.cos(wind_to_direction_cart * np.pi / 180)
+                + u_prop * vnorm
+            )
+            wind_y = (
+                wind_speed * np.sin(wind_to_direction_cart * np.pi / 180)
+                + v_prop * vnorm
+            )
 
             # Rainfall (if required)
-            if self.config["include_rainfall"] == True:
+            if self.config["include_rainfall"]:
                 # Add rainfall
                 if self.config["rainfall_relationship"] == "ipet":
                     # IPET is a simple rainfall model relating pressure to rainfall rate
-                    pdef = (self.config["background_pressure"] * 100 - air_pressure[0, 0]) / 100  # % hPa to Pa
+                    pdef = (
+                        self.config["background_pressure"] * 100 - air_pressure[0, 0]
+                    ) / 100  # % hPa to Pa
                     pdef = max(pdef, 0.0)
                     for ip in range(len(r)):
                         if r[ip] < rmax:
@@ -358,39 +376,39 @@ class TropicalCyclone:
             if self.config["include_rainfall"]:
                 self.spiderweb.ds["precipitation"].values[it, :, :] = precipitation
 
-
             # # Scale wind speeds back to ensure we always reach vmax
             # missing_factor = vmax / np.max(wind_speed)
             # wind_speed = wind_speed * missing_factor
 
         # Default is spiderweb in ascii
         if filename is not None:
-            self.spiderweb.write(filename,
-                                 format=format,
-                                 background_pressure=self.config["background_pressure"],
-                                 tref=self.config["tref"],
-                                 include_rainfall=self.config["include_rainfall"])
+            self.spiderweb.write(
+                filename,
+                format=format,
+                background_pressure=self.config["background_pressure"],
+                tref=self.config["tref"],
+                include_rainfall=self.config["include_rainfall"],
+            )
 
         # If error stats are required
         if error_stats:
             # Compute the error stats
             error_stats = self.compute_track_error_stats()
 
-
     def get_track_from_spiderweb(self, replace=False):
         """Get the track from the spiderweb."""
         track = self.spiderweb.get_track(self.config)
         if replace:
             self.track = track
-        return track    
+        return track
 
     def compute_track_error_stats(self):
         """Compute error statistics"""
         resulting_track = self.spiderweb.get_track(self.config)
-        r_best   = np.empty((len(resulting_track.gdf), 4, 4)) * np.nan
+        r_best = np.empty((len(resulting_track.gdf), 4, 4)) * np.nan
         r_result = np.empty((len(resulting_track.gdf), 4, 4)) * np.nan
-        r_diff   = np.empty((len(resulting_track.gdf), 4, 4)) * np.nan
-        r_diff_rel  = np.empty((len(resulting_track.gdf), 4, 4)) * np.nan
+        r_diff = np.empty((len(resulting_track.gdf), 4, 4)) * np.nan
+        r_diff_rel = np.empty((len(resulting_track.gdf), 4, 4)) * np.nan
         r_diff_radius_mean = np.zeros((len(resulting_track.gdf), 4))
         r_diff_radius_rel_mean = np.zeros((len(resulting_track.gdf), 4))
         r_diff_mean = np.zeros((len(resulting_track.gdf)))
@@ -405,34 +423,60 @@ class TropicalCyclone:
                 ibst = 0
                 ires = 0
                 for iv in range(4):
-                    r_best[it, ir, iv]   = self.track.gdf[rstr[ir] + "_" + vstr[iv]][it]
-                    r_result[it, ir, iv] = resulting_track.gdf[rstr[ir] + "_" + vstr[iv]][it]
+                    r_best[it, ir, iv] = self.track.gdf[rstr[ir] + "_" + vstr[iv]][it]
+                    r_result[it, ir, iv] = resulting_track.gdf[
+                        rstr[ir] + "_" + vstr[iv]
+                    ][it]
                     # Compute the error statistics for this wind speed
                     r_diff[it, ir, iv] = r_result[it, ir, iv] - r_best[it, ir, iv]
-                    r_diff_rel[it, ir, iv] = 100 * (r_result[it, ir, iv] - r_best[it, ir, iv]) / r_best[it, ir, iv]
-                    if not np.isnan(r_best[it, ir, iv]) and not np.isnan(r_result[it, ir, iv]):
+                    r_diff_rel[it, ir, iv] = (
+                        100
+                        * (r_result[it, ir, iv] - r_best[it, ir, iv])
+                        / r_best[it, ir, iv]
+                    )
+                    if not np.isnan(r_best[it, ir, iv]) and not np.isnan(
+                        r_result[it, ir, iv]
+                    ):
                         iok += 1
-                    if not np.isnan(r_best[it, ir, iv]) and np.isnan(r_result[it, ir, iv]):
+                    if not np.isnan(r_best[it, ir, iv]) and np.isnan(
+                        r_result[it, ir, iv]
+                    ):
                         ibst += 1
-                    if np.isnan(r_best[it, ir, iv]) and not np.isnan(r_result[it, ir, iv]):
-                        ires += 1    
+                    if np.isnan(r_best[it, ir, iv]) and not np.isnan(
+                        r_result[it, ir, iv]
+                    ):
+                        ires += 1
                 r_diff_radius_mean[it, ir] = np.nanmean(r_diff[it, ir, :])
                 r_diff_radius_rel_mean[it, ir] = np.nanmean(r_diff_rel[it, ir, :])
 
-#                print("Mean error for " + rstr[ir] + " : " + '{0:.1f}'.format(r_diff_radius_mean[it, ir]) + " NM (" + '{0:.0f}'.format(r_diff_radius_rel_mean[it, ir]) + " %)" + "    - " + str(iok) + " OK, " + str(ibst) + " Best, " + str(ires) + " Result")
-                print("Mean error for " + rstr[ir] + " : " + '{0:.1f}'.format(r_diff_radius_mean[it, ir]) + " NM (" + '{0:.0f}'.format(r_diff_radius_rel_mean[it, ir]) + " %)")
+                #                print("Mean error for " + rstr[ir] + " : " + '{0:.1f}'.format(r_diff_radius_mean[it, ir]) + " NM (" + '{0:.0f}'.format(r_diff_radius_rel_mean[it, ir]) + " %)" + "    - " + str(iok) + " OK, " + str(ibst) + " Best, " + str(ires) + " Result")
+                print(
+                    "Mean error for "
+                    + rstr[ir]
+                    + " : "
+                    + "{0:.1f}".format(r_diff_radius_mean[it, ir])
+                    + " NM ("
+                    + "{0:.0f}".format(r_diff_radius_rel_mean[it, ir])
+                    + " %)"
+                )
 
             r_diff_mean[it] = np.nanmean(r_diff_radius_mean[it, :])
             r_diff_rel_mean[it] = np.nanmean(r_diff_radius_rel_mean[it, :])
 
-            print("Mean error for all : " + '{0:.1f}'.format(r_diff_mean[it]) + " NM (" + '{0:.0f}'.format(r_diff_rel_mean[it]) + " %)")
+            print(
+                "Mean error for all : "
+                + "{0:.1f}".format(r_diff_mean[it])
+                + " NM ("
+                + "{0:.0f}".format(r_diff_rel_mean[it])
+                + " %)"
+            )
 
     def make_ensemble(self, **kwargs):
         """Make ensemble"""
-        ensemble = TropicalCycloneEnsemble(self, **kwargs)        
+        ensemble = TropicalCycloneEnsemble(self, **kwargs)
         ensemble.generate()
         return ensemble
-    
+
     def merge_with_meteo_dataset(self):
         """Merge with meteo dataset. Not implemented yet."""
         pass
@@ -442,14 +486,18 @@ class TropicalCyclone:
         # Find the track(s)
         pass
 
-    def get_wind_field_from_meteo_dataset(self, meteo_dataset, filename=None, format="ascii"):
+    def get_wind_field_from_meteo_dataset(
+        self, meteo_dataset, filename=None, format="ascii"
+    ):
         """Get the wind field from a meteo dataset"""
 
         # Track has already been defined
-        self.spiderweb.initialize_grid(self.track,
-                                       self.config["nr_radial_bins"],
-                                       self.config["nr_directional_bins"],
-                                       self.config["spiderweb_radius"] * 1000) # Creates the spiderweb arrays
+        self.spiderweb.initialize_grid(
+            self.track,
+            self.config["nr_radial_bins"],
+            self.config["nr_directional_bins"],
+            self.config["spiderweb_radius"] * 1000,
+        )  # Creates the spiderweb arrays
 
         # Loop over time steps in the track
         for it in range(len(self.track.gdf)):
@@ -458,35 +506,47 @@ class TropicalCyclone:
             xx = self.spiderweb.ds["lon"].values[it, :, :]
             yy = self.spiderweb.ds["lat"].values[it, :, :]
             # Get the data at the specified time (really should start doing this with xarray!)
-            self.spiderweb.ds["wind_x"].values[it, :, :] = meteo_dataset.interpolate_variable("wind_u", tt, xx, yy)
-            self.spiderweb.ds["wind_y"].values[it, :, :] = meteo_dataset.interpolate_variable("wind_v", tt, xx, yy)
-            self.spiderweb.ds["pressure"].values[it, :, :] = meteo_dataset.interpolate_variable("barometric_pressure", tt, xx, yy)
-            self.spiderweb.ds["precipitation"].values[it, :, :] = meteo_dataset.interpolate_variable("precipitation", tt, xx, yy)
+            self.spiderweb.ds["wind_x"].values[it, :, :] = (
+                meteo_dataset.interpolate_variable("wind_u", tt, xx, yy)
+            )
+            self.spiderweb.ds["wind_y"].values[it, :, :] = (
+                meteo_dataset.interpolate_variable("wind_v", tt, xx, yy)
+            )
+            self.spiderweb.ds["pressure"].values[it, :, :] = (
+                meteo_dataset.interpolate_variable("barometric_pressure", tt, xx, yy)
+            )
+            self.spiderweb.ds["precipitation"].values[it, :, :] = (
+                meteo_dataset.interpolate_variable("precipitation", tt, xx, yy)
+            )
 
         # Default is spiderweb in ascii
         if filename is not None:
-            self.spiderweb.write(filename,
-                                 format=format,
-                                 background_pressure=self.config["background_pressure"],
-                                 tref=self.config["tref"],
-                                 include_rainfall=self.config["include_rainfall"])
+            self.spiderweb.write(
+                filename,
+                format=format,
+                background_pressure=self.config["background_pressure"],
+                tref=self.config["tref"],
+                include_rainfall=self.config["include_rainfall"],
+            )
 
-
-    def get_wind_field_from_coamps(self, coamps_path, coamps_cycle, filename=None, format="ascii"):
+    def get_wind_field_from_coamps(
+        self, coamps_path, coamps_cycle, filename=None, format="ascii"
+    ):
         """Get the wind field from coamps-tc"""
 
         import xarray as xr
         from cht_utils.misc_tools import interp2
 
         # # Track has already been defined
-        self.spiderweb.initialize_grid(self.track,
-                                       self.config["nr_radial_bins"],
-                                       self.config["nr_directional_bins"],
-                                       self.config["spiderweb_radius"] * 1000) # Creates the spiderweb arrays
+        self.spiderweb.initialize_grid(
+            self.track,
+            self.config["nr_radial_bins"],
+            self.config["nr_directional_bins"],
+            self.config["spiderweb_radius"] * 1000,
+        )  # Creates the spiderweb arrays
 
         # 6. Loop over time steps in the track
         for it in range(len(self.track.gdf)):
-
             # Get time
             tt = datetime.strptime(self.track.gdf.datetime[it], dateformat_module)
 
@@ -505,12 +565,14 @@ class TropicalCyclone:
 
             # First do high-res d03
 
-            coamps_file = os.path.join(coamps_path, "coamps-tc_d03_" + coamps_cycle + "_" + taustr + ".nc")
+            coamps_file = os.path.join(
+                coamps_path, "coamps-tc_d03_" + coamps_cycle + "_" + taustr + ".nc"
+            )
 
             if not os.path.exists(coamps_file):
                 print("File does not exist : " + coamps_file)
                 continue
-                                       
+
             ds = xr.open_dataset(coamps_file)
             # ds = ds.sel(lon=slice(xx.min(), xx.max()), lat=slice(yy.min(), yy.max()))
 
@@ -527,13 +589,19 @@ class TropicalCyclone:
             # Get the data at the specified time (really should start doing this with xarray!)
             self.spiderweb.ds["wind_x"].values[it, :, :] = interp2(lon, lat, uu, xx, yy)
             self.spiderweb.ds["wind_y"].values[it, :, :] = interp2(lon, lat, vv, xx, yy)
-            self.spiderweb.ds["pressure"].values[it, :, :] = interp2(lon, lat, pp, xx, yy)
-            self.spiderweb.ds["precipitation"].values[it, :, :] = interp2(lon, lat, rr, xx, yy)
+            self.spiderweb.ds["pressure"].values[it, :, :] = interp2(
+                lon, lat, pp, xx, yy
+            )
+            self.spiderweb.ds["precipitation"].values[it, :, :] = interp2(
+                lon, lat, rr, xx, yy
+            )
 
             # Now do low-res d02
             # But only where we have missing values
 
-            coamps_file = os.path.join(coamps_path, "coamps-tc_d02_" + coamps_cycle + "_" + taustr + ".nc")
+            coamps_file = os.path.join(
+                coamps_path, "coamps-tc_d02_" + coamps_cycle + "_" + taustr + ".nc"
+            )
 
             if not os.path.exists(coamps_file):
                 print("File does not exist : " + coamps_file)
@@ -552,27 +620,52 @@ class TropicalCyclone:
             lat = lat[:, 0]
 
             # Get the data at the specified time (really should start doing this with xarray!)
-            self.spiderweb.ds["wind_x"].values[it, :, :][np.isnan(self.spiderweb.ds["wind_x"].values[it, :, :])] = interp2(lon, lat, uu, xx, yy)[np.isnan(self.spiderweb.ds["wind_x"].values[it, :, :])]
-            self.spiderweb.ds["wind_y"].values[it, :, :][np.isnan(self.spiderweb.ds["wind_y"].values[it, :, :])] = interp2(lon, lat, vv, xx, yy)[np.isnan(self.spiderweb.ds["wind_y"].values[it, :, :])]
-            self.spiderweb.ds["pressure"].values[it, :, :][np.isnan(self.spiderweb.ds["pressure"].values[it, :, :])] = interp2(lon, lat, pp, xx, yy)[np.isnan(self.spiderweb.ds["pressure"].values[it, :, :])]
-            self.spiderweb.ds["precipitation"].values[it, :, :][np.isnan(self.spiderweb.ds["precipitation"].values[it, :, :])] = interp2(lon, lat, rr, xx, yy)[np.isnan(self.spiderweb.ds["precipitation"].values[it, :, :])]
+            self.spiderweb.ds["wind_x"].values[it, :, :][
+                np.isnan(self.spiderweb.ds["wind_x"].values[it, :, :])
+            ] = interp2(lon, lat, uu, xx, yy)[
+                np.isnan(self.spiderweb.ds["wind_x"].values[it, :, :])
+            ]
+            self.spiderweb.ds["wind_y"].values[it, :, :][
+                np.isnan(self.spiderweb.ds["wind_y"].values[it, :, :])
+            ] = interp2(lon, lat, vv, xx, yy)[
+                np.isnan(self.spiderweb.ds["wind_y"].values[it, :, :])
+            ]
+            self.spiderweb.ds["pressure"].values[it, :, :][
+                np.isnan(self.spiderweb.ds["pressure"].values[it, :, :])
+            ] = interp2(lon, lat, pp, xx, yy)[
+                np.isnan(self.spiderweb.ds["pressure"].values[it, :, :])
+            ]
+            self.spiderweb.ds["precipitation"].values[it, :, :][
+                np.isnan(self.spiderweb.ds["precipitation"].values[it, :, :])
+            ] = interp2(lon, lat, rr, xx, yy)[
+                np.isnan(self.spiderweb.ds["precipitation"].values[it, :, :])
+            ]
 
         # Replace nan with 0.0 in wind field
-        self.spiderweb.ds["wind_x"].values[np.isnan(self.spiderweb.ds["wind_x"].values)] = 0.0
-        self.spiderweb.ds["wind_y"].values[np.isnan(self.spiderweb.ds["wind_y"].values)] = 0.0  
-        # Replace nan with background pressure        
-        self.spiderweb.ds["pressure"].values[np.isnan(self.spiderweb.ds["pressure"].values)] = self.config["background_pressure"]
+        self.spiderweb.ds["wind_x"].values[
+            np.isnan(self.spiderweb.ds["wind_x"].values)
+        ] = 0.0
+        self.spiderweb.ds["wind_y"].values[
+            np.isnan(self.spiderweb.ds["wind_y"].values)
+        ] = 0.0
+        # Replace nan with background pressure
+        self.spiderweb.ds["pressure"].values[
+            np.isnan(self.spiderweb.ds["pressure"].values)
+        ] = self.config["background_pressure"]
         # Replace nan with 0.0 in precipitation
-        self.spiderweb.ds["precipitation"].values[np.isnan(self.spiderweb.ds["precipitation"].values)] = 0.0
+        self.spiderweb.ds["precipitation"].values[
+            np.isnan(self.spiderweb.ds["precipitation"].values)
+        ] = 0.0
 
         # Default is spiderweb in ascii
         if filename is not None:
-            self.spiderweb.write(filename,
-                                 format=format,
-                                 background_pressure=self.config["background_pressure"],
-                                 tref=self.config["tref"],
-                                 include_rainfall=self.config["include_rainfall"])
-
+            self.spiderweb.write(
+                filename,
+                format=format,
+                background_pressure=self.config["background_pressure"],
+                tref=self.config["tref"],
+                include_rainfall=self.config["include_rainfall"],
+            )
 
     def to_gdf(self, filename=None):
         """Convert track to GeoDataFrame, and optionally write to file."""

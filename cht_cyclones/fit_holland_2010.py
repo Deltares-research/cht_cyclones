@@ -1,7 +1,7 @@
 import numpy as np
-from scipy.interpolate import CubicSpline, interp1d
+from scipy.interpolate import interp1d
 
-from .wind_profiles import holland2010
+from cht_cyclones.wind_profiles import holland2010
 
 
 # Definition to fit Holland 2010 wind field
@@ -13,7 +13,7 @@ def fit_wind_field_holland2010(
     # what about limits on these variables
     # OK with xn calibration
 
-    # function to fit wind field based on Holland 2010
+    # function to fit wind field based pn Holland 2010
     size_factor = 1
     phi = np.arange(90, -270 - 10, -10)  # radial angles (cartesian, degrees)
     rmax = rmax * 1000  # convert from km to m
@@ -39,7 +39,7 @@ def fit_wind_field_holland2010(
         for iquad in range(np.size(obs["quadrants_radii"], 1)):
             if not np.isnan(obs["quadrants_radii"][irad, iquad]):
                 nobs = nobs + 1
-    wrad = obs["quadrants_speed"]            
+    wrad = obs["quadrants_speed"]
 
     # just for plotting
     xx = np.zeros((len(phi), len(r)))

@@ -9,27 +9,23 @@ import os
 
 import boto3
 import toml
-import yaml
 from botocore import UNSIGNED
 from botocore.client import Config
 
-from .track_dataset import CycloneTrackDataset
+from cht_cyclones.track_dataset import CycloneTrackDataset
 
 
 class CycloneTrackDatabase:
     """
     The main Cyclone Track Database class
     Contains one or more track datasets.
-    
+
     :param pth: Path name where bathymetry tiles will be cached.
-    :type pth: string            
+    :type pth: string
     """
-    
-    def __init__(self, path,
-                 s3_bucket=None,
-                 s3_key=None,
-                 s3_region=None):
-        self.path    = path
+
+    def __init__(self, path, s3_bucket=None, s3_key=None, s3_region=None):
+        self.path = path
         self.dataset = []
         self.s3_client = None
         self.s3_bucket = s3_bucket
@@ -37,10 +33,10 @@ class CycloneTrackDatabase:
         self.s3_region = s3_region
 
         self.read()
-    
+
     def read(self):
         """
-        Reads meta-data of all datasets in the database. 
+        Reads meta-data of all datasets in the database.
         """
         # Check if the path exists. If not, create it.
         if not os.path.exists(self.path):
@@ -55,7 +51,6 @@ class CycloneTrackDatabase:
         datasets = toml.load(tml_file)
 
         for d in datasets["dataset"]:
-
             name = d["name"]
 
             if "path" in d:
@@ -70,19 +65,25 @@ class CycloneTrackDatabase:
                 metadata = toml.load(fname)
                 dataset_format = metadata["format"]
             else:
-                print("Could not find metadata file for dataset " + name + " ! Skipping dataset.")
+                print(
+                    "Could not find metadata file for dataset "
+                    + name
+                    + " ! Skipping dataset."
+                )
                 continue
 
             if dataset_format.lower() == "ibtracs":
                 dataset = CycloneTrackDataset(name, path)
             elif dataset_format.lower() == "hurdat2":
                 pass
-            
+
             self.dataset.append(dataset)
 
     def check_online_database(self):
         if self.s3_client is None:
-            self.s3_client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+            self.s3_client = boto3.client(
+                "s3", config=Config(signature_version=UNSIGNED)
+            )
         if self.s3_bucket is None:
             return
         # First download a copy of cyclone_track_datasets.tml and call it cyclone_track_datasets_s3.tml
@@ -90,12 +91,16 @@ class CycloneTrackDatabase:
         filename = os.path.join(self.path, "cyclone_track_datasets_s3.tml")
         print("Updating cyclone track database ...")
         try:
-            self.s3_client.download_file(Bucket=self.s3_bucket,     # assign bucket name
-                                         Key=key,           # key is the file name
-                                         Filename=filename) # storage file path
-        except:
+            self.s3_client.download_file(
+                Bucket=self.s3_bucket,  # assign bucket name
+                Key=key,  # key is the file name
+                Filename=filename,
+            )  # storage file path
+        except Exception:
             # Download failed
-            print(f"Failed to download {key} from {self.s3_bucket}. Database will not be updated.")
+            print(
+                f"Failed to download {key} from {self.s3_bucket}. Database will not be updated."
+            )
             return
 
         # Read bathymetry_s3.tml
@@ -119,14 +124,16 @@ class CycloneTrackDatabase:
                 filename = os.path.join(path, "metadata.tml")
                 # Download metadata
                 try:
-                    self.s3_client.download_file(Bucket=self.s3_bucket, # assign bucket name
-                                                Key=key,               # key is the file name
-                                                Filename=filename)     # storage file path
+                    self.s3_client.download_file(
+                        Bucket=self.s3_bucket,  # assign bucket name
+                        Key=key,  # key is the file name
+                        Filename=filename,
+                    )  # storage file path
                 except Exception as e:
                     print(e)
                     print(f"Failed to download {key}. Skipping tide model.")
                     continue
-                # Necessary data has been downloaded    
+                # Necessary data has been downloaded
                 track_datasets_added = True
                 added_names.append(s3_name)
         # Write new local bathymetry.tml
@@ -138,8 +145,10 @@ class CycloneTrackDatabase:
             for name in added_names:
                 d["dataset"].append({"name": name})
             # Now write the new bathymetry.tml
-            with open(os.path.join(self.path, "cyclone_track_datasets.tml"), "w") as tml:
-                toml.dump(d, tml)            
+            with open(
+                os.path.join(self.path, "cyclone_track_datasets.tml"), "w"
+            ) as tml:
+                toml.dump(d, tml)
             # Read the database again
             self.dataset = []
             self.read()
@@ -163,9 +172,10 @@ class CycloneTrackDatabase:
             long_name_list.append(dataset.long_name)
         return short_name_list, long_name_list
 
+
 # def dict2yaml(file_name, dct, sort_keys=False):
-#     yaml_string = yaml.dump(dct, sort_keys=sort_keys)    
-#     file = open(file_name, "w")  
+#     yaml_string = yaml.dump(dct, sort_keys=sort_keys)
+#     file = open(file_name, "w")
 #     file.write(yaml_string)
 #     file.close()
 
@@ -173,7 +183,6 @@ class CycloneTrackDatabase:
 #     file = open(file_name,"r")
 #     dct = yaml.load(file, Loader=yaml.FullLoader)
 #     return dct
-
 
 
 # import datetime

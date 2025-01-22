@@ -1,7 +1,10 @@
 # Load modules
 import os
 
-from cht_cyclones.tropical_cyclone import TropicalCyclone, TropicalCycloneEnsemble
+from cht_cyclones.tropical_cyclone import (
+    TropicalCyclone,
+    TropicalCycloneEnsemble,
+)
 
 # Define a track
 tc = TropicalCyclone(name="Maria_forecast")

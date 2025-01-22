@@ -1,8 +1,17 @@
 # Load modules
 import os
 from datetime import datetime
+from pathlib import Path
 
+from cht_cyclones.cyclone_track_database import CycloneTrackDatabase
 from cht_cyclones.tropical_cyclone import TropicalCyclone, TropicalCycloneEnsemble
+
+# Create track file
+database_file = Path(__file__).parent / "IBTrACS.ALL.v04r00.nc"
+db = CycloneTrackDatabase("ibtracs", file_name=database_file)
+ind = db.list_names().index("IDAI")
+tc = db.get_track(index=ind)
+tc.write_track(Path(__file__).parent / "best_track_idai.cyc", "ddb_cyc")
 
 # Define folder and track
 tc = TropicalCyclone(name="Idai")

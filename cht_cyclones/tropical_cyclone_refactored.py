@@ -573,15 +573,14 @@ class TropicalCyclone:
                 print("File does not exist : " + coamps_file)
                 continue
 
-            ds = xr.open_dataset(coamps_file)
-            # ds = ds.sel(lon=slice(xx.min(), xx.max()), lat=slice(yy.min(), yy.max()))
-
-            lon = ds["lon"].values
-            lat = ds["lat"].values
-            uu = ds["uuwind"].values
-            vv = ds["vvwind"].values
-            pp = ds["slpres"].values * 100
-            rr = ds["precip"].values
+            with xr.open_dataset(coamps_file) as ds:
+                # ds = ds.sel(lon=slice(xx.min(), xx.max()), lat=slice(yy.min(), yy.max()))
+                lon = ds["lon"].values
+                lat = ds["lat"].values
+                uu = ds["uuwind"].values
+                vv = ds["vvwind"].values
+                pp = ds["slpres"].values * 100
+                rr = ds["precip"].values
 
             lon = lon[0, :] - 360.0
             lat = lat[:, 0]
@@ -607,14 +606,13 @@ class TropicalCyclone:
                 print("File does not exist : " + coamps_file)
                 continue
 
-            ds = xr.open_dataset(coamps_file)
-
-            lon = ds["lon"].values
-            lat = ds["lat"].values
-            uu = ds["uuwind"].values
-            vv = ds["vvwind"].values
-            pp = ds["slpres"].values * 100
-            rr = ds["precip"].values
+            with xr.open_dataset(coamps_file) as ds:
+                lon = ds["lon"].values
+                lat = ds["lat"].values
+                uu = ds["uuwind"].values
+                vv = ds["vvwind"].values
+                pp = ds["slpres"].values * 100
+                rr = ds["precip"].values
 
             lon = lon[0, :] - 360.0
             lat = lat[:, 0]

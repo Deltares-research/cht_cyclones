@@ -5,7 +5,7 @@ Created on Sun Apr 25 10:58:08 2021
 @author: ormondt
 """
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 from cht_cyclones.track_database import CycloneTrackDatabase
 from cht_cyclones.track_dataset import CycloneTrackDataset

@@ -24,15 +24,16 @@ class CycloneTrackDatabase:
     :type pth: string
     """
 
-    def __init__(self, path, s3_bucket=None, s3_key=None, s3_region=None):
+    def __init__(self, path, s3_bucket=None, s3_key=None, s3_region=None, check_online=False):
         self.path = path
         self.dataset = []
         self.s3_client = None
         self.s3_bucket = s3_bucket
         self.s3_key = s3_key
         self.s3_region = s3_region
-
         self.read()
+        if check_online:
+            self.check_online_database()
 
     def read(self):
         """

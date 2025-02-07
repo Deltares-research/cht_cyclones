@@ -4,13 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cht_cyclones"
-#TODO
-#description = "Combining of tidal components to time series"
+description = "Toolkit for generating tropical cyclone wind fields"
 readme = "README.md"
 authors = [
     { name = "Maarten van Ormondt", email = "maarten.vanormondt@deltares.nl"},
-    { name = "Julian Hofer", email = "Julian.Hofer@deltares.nl" },
-    { name = "Sarwan Peiter", email = "Sarwan.Peiter@deltares.nl" },
+	{ name = "Kees Nederhoff", email = "kees.nederhoff@deltares-usa.us"},
 ]
 license = { text = "MIT" }
 classifiers = [
@@ -18,7 +16,20 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
 requires-python = ">=3.10"
-dependencies = ["numpy", "scipy", "pandas", "geopandas","matplotlib", "shapely", "xarray", "fiona", "toml", "boto3", "python-dateutil", "cht_utils", "geojson", "netCDF4"]
+dependencies = ["numpy",
+                "scipy",
+				"pandas",
+				"geopandas",
+				"matplotlib",
+				"shapely",
+				"xarray",
+				"fiona",
+				"toml",
+				"boto3",
+				"python-dateutil",
+				"cht_utils",
+				"geojson",
+				"netCDF4"]
 dynamic = ["version"]
 
 [project.optional-dependencies]

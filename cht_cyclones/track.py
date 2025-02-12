@@ -27,7 +27,7 @@ class TropicalCycloneTrack:
         self.unit_intensity = "knots"
         self.unit_radii = "nm"
 
-    def read(self, filename, tau=0):
+    def read(self, filename, tau=0, format="cyc"):
         """Read a tropical cyclone track from a file."""
 
         # Try to read cyc file new format
@@ -46,6 +46,17 @@ class TropicalCycloneTrack:
             # Get rid of NaN values in vmax
             self.fix_nan_vmax()
             self.apply_tau(tau)
+            return None
+        except Exception:
+            pass
+
+        # Try to read csv file (from PAGASA)
+        try:
+            gdf = read_csv_pagasa(filename)
+            self.gdf = gdf
+            # Get rid of NaN values in vmax
+            self.fix_nan_vmax()
+            # self.apply_tau(tau)
             return None
         except Exception:
             pass
@@ -1102,7 +1113,82 @@ def read_trk(filename):
 
     return gdf
 
+def read_csv_pagasa(filename):
+    # Read the track from a PAGASA csv file
+    # Create a new empty GDF
+    gdf = GeoDataFrame()
+    # Header looks this this:%CycloneNumber,Datetime,TimeElapsed,Longitude,Latitude,Speed,Bearing,CentralPressure,EnvPressure,rMax
+    # 6,5010-07-25 07:00:00,0.0,142.3,14.3,32.4,296.0,1004.2,1016.67,72.0
+    d = pd.read_csv(filename, header=0)
+    no_data = -999.0
+    # Loop through rows in d
+    for index, row in d.iterrows():
+        # Get values
+        date_format = "%Y-%m-%d %H:%M:%S"
+        date_string = row["Datetime"]
+        tc_time = datetime.strptime(date_string, date_format)
+        tc_time_string = tc_time.strftime("%Y%m%d %H%M%S")
+        y = row["Latitude"]
+        x = row["Longitude"]        
+        vmax = no_data
+        pc = row["CentralPressure"]
+        RMW = row["rMax"]
+        R35_NE = no_data
+        R35_SE = no_data
+        R35_SW = no_data
+        R35_NW = no_data
+        R50_NE = no_data
+        R50_SE = no_data
+        R50_SW = no_data
+        R50_NW = no_data
+        R65_NE = no_data
+        R65_SE = no_data
+        R65_SW = no_data
+        R65_NW = no_data
+        R100_NE = no_data
+        R100_SE = no_data
+        R100_SW = no_data
+        R100_NW = no_data
 
+        # Make GeoDataFrame
+        point = Point(x, y)
+        gdf_point = GeoDataFrame(
+            {
+                "datetime": [tc_time_string],
+                "geometry": [point],
+                "vmax": [vmax],
+                "pc": [pc],
+                "rmw": [RMW],
+                "r35_ne": [R35_NE],
+                "r35_se": [R35_SE],
+                "r35_sw": [R35_SW],
+                "r35_nw": [R35_NW],
+                "r50_ne": [R50_NE],
+                "r50_se": [R50_SE],
+                "r50_sw": [R50_SW],
+                "r50_nw": [R50_NW],
+                "r65_ne": [R65_NE],
+                "r65_se": [R65_SE],
+                "r65_sw": [R65_SW],
+                "r65_nw": [R65_NW],
+                "r100_ne": [R100_NE],
+                "r100_se": [R100_SE],
+                "r100_sw": [R100_SW],
+                "r100_nw": [R100_NW],
+            }
+        )
+
+        # Append self
+        gdf = pd.concat([gdf, gdf_point])
+
+    # Replace -999.0 with NaN
+    gdf = gdf.replace(-999.0, np.nan)
+    gdf = gdf.reset_index(drop=True)
+    gdf = gdf.set_crs(crs=CRS(4326), inplace=True)
+
+    return gdf
+
+        
 def write_cyc(filename, gdf, include_header=True):
     """Write to cyc format"""
     with open(filename, "wt") as f:

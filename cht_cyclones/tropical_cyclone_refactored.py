@@ -110,9 +110,9 @@ class TropicalCyclone:
         with open(config_file, "w") as file:
             toml.dump(self.config, file)
 
-    def read_track(self, filename):
+    def read_track(self, filename, format=None):
         # Read track file (automatically determine format)
-        config = self.track.read(filename)
+        config = self.track.read(filename, format=format)
         if config is not None:
             # Old ddb_cyc format with config in it
             self.set_default_config()

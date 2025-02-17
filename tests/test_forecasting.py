@@ -7,20 +7,19 @@ from cht_cyclones.cyclone_track_database import CycloneTrackDatabase
 from cht_cyclones.tropical_cyclone import TropicalCyclone, TropicalCycloneEnsemble
 
 
-def test_forecasting():
+def test_forecasting(tmp_dir):
     # Create track file
     database_file = Path(__file__).parent / "IBTrACS.ALL.v04r00.nc"
     db = CycloneTrackDatabase("ibtracs", file_name=database_file)
     ind = db.list_names().index("IDAI")
     tc = db.get_track(index=ind)
-    tc.write_track(Path(__file__).parent / "best_track_idai.cyc", "ddb_cyc")
+    tc.write_track(tmp_dir / "best_track_idai.cyc", "ddb_cyc")
 
     # Define folder and track
     tc = TropicalCyclone(name="Idai")
-    current_directory = os.path.dirname(os.path.abspath(__file__))
 
     # Read a track
-    file_path = os.path.join(current_directory, "best_track_idai.cyc")
+    file_path = os.path.join(tmp_dir, "best_track_idai.cyc")
     tc.from_ddb_cyc(file_path)
     tc.account_for_forward_speed()
     tc.estimate_missing_values()
@@ -41,8 +40,8 @@ def test_forecasting():
     tc2.compute_ensemble(10)
 
     # Write out
-    tc2.to_shapefile(current_directory)
-    tc2.to_spiderweb(current_directory)
-    tc2.make_figures(current_directory)
+    tc2.to_shapefile(tmp_dir)
+    tc2.to_spiderweb(tmp_dir)
+    tc2.make_figures(tmp_dir)
 
     # asserts ?

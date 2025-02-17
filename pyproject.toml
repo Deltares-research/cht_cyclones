@@ -47,6 +47,12 @@ include = ["cht_cyclones"]
 [tool.setuptools.package-data]
 "cht_observations" = ["py.typed"]
 
+[tool.setuptools.packages.find]
+where = ["cht_cyclones"]
+
+[tool.setuptools.package-data]
+mypkg = ["*.yml"]
+
 # TODO
 #[project.urls]
 #Documentation = "https://deltares.github.io/CoastalHazardTools"

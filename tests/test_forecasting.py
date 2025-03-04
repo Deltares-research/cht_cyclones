@@ -45,3 +45,5 @@ def test_forecasting(tmp_dir):
     tc2.make_figures(tmp_dir)
 
     # asserts ?
+    assert Path(tmp_dir / "wind_speeds.png").exists()
+    os.remove(tmp_dir / "wind_speeds.png")

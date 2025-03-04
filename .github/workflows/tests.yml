@@ -47,6 +47,7 @@ jobs:
           conda run -n cht_cyclones pytest tests
 
   scan:
+    needs: test
     name: SonarQube Scan
     runs-on: ubuntu-latest
     steps:

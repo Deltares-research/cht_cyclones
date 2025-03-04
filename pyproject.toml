@@ -33,7 +33,7 @@ dependencies = ["numpy",
 dynamic = ["version"]
 
 [project.optional-dependencies]
-tests = ["pytest"]
+tests = ["pytest", "pytest-cov"]
 
 [tool.setuptools]
 zip-safe = true
@@ -46,6 +46,11 @@ include = ["cht_cyclones"]
 
 [tool.setuptools.package-data]
 "*" = ["*.yml"]
+
+[tool.pytest.ini_options]
+addopts = "--cov cht_cyclones --cov-report xml --cov-fail-under 80"
+testpaths = ["tests"]
+
 
 #[tool.setuptools.package-data]
 #"cht_observations" = ["py.typed"]

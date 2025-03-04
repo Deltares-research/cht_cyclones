@@ -24,7 +24,9 @@ class CycloneTrackDatabase:
     :type pth: string
     """
 
-    def __init__(self, path, s3_bucket=None, s3_key=None, s3_region=None, check_online=False):
+    def __init__(
+        self, path, s3_bucket=None, s3_key=None, s3_region=None, check_online=False
+    ):
         self.path = path
         self.dataset = []
         self.s3_client = None

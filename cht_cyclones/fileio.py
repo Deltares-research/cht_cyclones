@@ -1,12 +1,15 @@
 from datetime import datetime
 
 import geopandas as gpd
+import numpy as np
+import pandas as pd
 from shapely.geometry import Point
 
 
 class TropicalCycloneTrack:
-    def __init__(self):
-        pass
+    def __init__(self, epsg: int = 4326, debug: int = 0):
+        self.EPSG = epsg
+        self.debug = debug
 
     def read(self, filename, fmt):
         # If ddb_cyc
@@ -17,113 +20,121 @@ class TropicalCycloneTrack:
 
             # Define the name first
             for line in lines:
-                if line[0:4] == "Name":
+                if line.startswith("Name"):
                     string_value = line[5:]
                     string_value = "".join(ch for ch in string_value if ch.isalnum())
                     self.name = string_value
-
-            # Define other variables names (if they exist)
-            for i in range(len(lines)):
-                line = lines[i]
-                if line[0:11] == "WindProfile":
-                    string_value = line[23:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.wind_profile = string_value
-                if line[0:20] == "WindPressureRelation":
-                    string_value = line[23:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.wind_pressure_relation = string_value
-                if line[0:12] == "RMaxRelation":
-                    string_value = line[23:]
-                    string_value = "".join(ch for ch in string_value if ch.isalnum())
-                    self.rmw_relation = string_value
-                if line[0:18] == "Backgroundpressure":
-                    string_value = line[23:]
-                    self.background_pressure = float(string_value)
-                if line[0:9] == "PhiSpiral":
-                    string_value = line[23:]
-                    self.phi_spiral = float(string_value)
-                if line[0:20] == "WindConversionFactor":
-                    string_value = line[23:]
-                    self.wind_conversion_factor = float(string_value)
-                if line[0:15] == "SpiderwebRadius":
-                    string_value = line[23:]
-                    self.spiderweb_radius = float(string_value)
-                if line[0:12] == "NrRadialBins":
-                    string_value = line[23:]
-                    self.nr_radial_bins = int(string_value)
-                if line[0:17] == "NrDirectionalBins":
-                    string_value = line[23:]
-                    self.nr_directional_bins = int(string_value)
-
-            # Read the track
-            for i in range(len(lines)):
-                line = lines[i]
-                if line[0:15] == "##    Datetime " or line[0:15] == "#   Date   Time":
                     break
 
-            # Place coordinates in Tropical Cyclone Track
-            for j in range(i + 2, len(lines)):
-                # Get values
-                line = lines[j]
-                line = line.split()
-                date_format = "%Y%m%d %H%M%S"
-                date_string = line[0] + " " + line[1]
-                tc_time = datetime.strptime(date_string, date_format)
-                tc_time_string = tc_time.strftime(date_format)
-                y = float(line[2])
-                x = float(line[3])
-                vmax = float(line[4])
-                pc = float(line[5])
-                RMW = float(line[6])
-                R35_NE = float(line[7])
-                R35_SE = float(line[8])
-                R35_SW = float(line[9])
-                R35_NW = float(line[10])
-                R50_NE = float(line[11])
-                R50_SE = float(line[12])
-                R50_SW = float(line[13])
-                R50_NW = float(line[14])
-                R65_NE = float(line[15])
-                R65_SE = float(line[16])
-                R65_SW = float(line[17])
-                R65_NW = float(line[18])
-                R100_NE = float(line[19])
-                R100_SE = float(line[20])
-                R100_SW = float(line[21])
-                R100_NW = float(line[22])
+            def _extract_value(line: str, start_index: int):
+                string_value = line[start_index:].strip()
+                return "".join(ch for ch in string_value if ch.isalnum())
 
-                # Make GeoDataFrame
-                point = Point(x, y)
-                gdf = gpd.GeoDataFrame(
-                    {
-                        "datetime": [tc_time_string],
-                        "geometry": [point],
-                        "vmax": [vmax],
-                        "pc": [pc],
-                        "RMW": [RMW],
-                        "R35_NE": [R35_NE],
-                        "R35_SE": [R35_SE],
-                        "R35_SW": [R35_SW],
-                        "R35_NW": [R35_NW],
-                        "R50_NE": [R50_NE],
-                        "R50_SE": [R50_SE],
-                        "R50_SW": [R50_SW],
-                        "R50_NW": [R50_NW],
-                        "R65_NE": [R65_NE],
-                        "R65_SE": [R65_SE],
-                        "R65_SW": [R65_SW],
-                        "R65_NW": [R65_NW],
-                        "R100_NE": [R100_NE],
-                        "R100_SE": [R100_SE],
-                        "R100_SW": [R100_SW],
-                        "R100_NW": [R100_NW],
-                    }
+            # Define other variables names (if they exist)
+            line_prefix_mapping = {
+                "WindProfile": "wind_profile",
+                "WindPressureRelation": "wind_pressure_relation",
+                "RMaxRelation": "rmw_relation",
+                "Backgroundpressure": "background_pressure",
+                "PhiSpiral": "phi_spiral",
+                "WindConversionFactor": "wind_conversion_factor",
+                "SpiderwebRadius": "spiderweb_radius",
+                "NrRadialBins": "nr_radial_bins",
+                "NrDirectionalBins": "nr_directional_bins",
+            }
+            for line in lines:
+                for prefix, attribute in line_prefix_mapping.items():
+                    if line.startswith(prefix):
+                        string_value = _extract_value(line.strip(), len(prefix) + 1)
+
+                        # Check if the attribute requires a float or integer conversion
+                        if attribute in [
+                            "background_pressure",
+                            "phi_spiral",
+                            "wind_conversion_factor",
+                            "spiderweb_radius",
+                        ]:
+                            setattr(self, attribute, float(string_value))
+                        elif attribute in ["nr_radial_bins", "nr_directional_bins"]:
+                            setattr(self, attribute, int(string_value))
+                        else:
+                            setattr(self, attribute, string_value)
+                        break  # Exit the loop once a match is found
+
+            def extract_values_from_line(line: str):
+                values = line.strip().split()
+                date_format = "%Y%m%d %H%M%S"
+                date_string = f"{values[0]} {values[1]}"
+                tc_time = datetime.strptime(date_string, date_format)
+                values_float = [
+                    float(v) for v in values[2:]
+                ]  # Extract float values from the line
+                return tc_time, values_float
+
+            # List of field names corresponding to the extracted float values
+            field_names = [
+                "vmax",
+                "pc",
+                "RMW",
+                "R35_NE",
+                "R35_SE",
+                "R35_SW",
+                "R35_NW",
+                "R50_NE",
+                "R50_SE",
+                "R50_SW",
+                "R50_NW",
+                "R65_NE",
+                "R65_SE",
+                "R65_SW",
+                "R65_NW",
+                "R100_NE",
+                "R100_SE",
+                "R100_SW",
+                "R100_NW",
+            ]
+
+            # Read header
+            data_start = None
+            for i, line in enumerate(lines):
+                if line.startswith("##    Datetime ") or line.startswith(
+                    "#   Date   Time"
+                ):
+                    data_start = i
+                    break
+
+            if data_start is None:
+                raise ValueError("Could not find the start of the data in the file")
+
+            # Read data
+            for j, line in enumerate(iterable=lines[data_start:], start=data_start):
+                if line.strip().startswith("#"):
+                    continue
+                # Extract the date and values
+                tc_time, values = extract_values_from_line(line)
+                tc_time_string = tc_time.strftime("%Y%m%d %H%M%S")
+
+                # Create a dictionary for the fields
+                if len(values[2:]) != len(field_names):
+                    raise ValueError(
+                        f"Expected {len(field_names)} values, but got {len(values[2:])}"
+                    )
+                track_data = dict(
+                    zip(["datetime"] + field_names, [tc_time_string] + values[2:])
                 )
+
+                # Create the GeoDataFrame
+                point = Point(
+                    values[0], values[1]
+                )  # Assuming x = values[0] and y = values[1]
+                gdf = gpd.GeoDataFrame({**track_data, "geometry": [point]}, index=[0])
                 gdf.set_crs(epsg=self.EPSG, inplace=True)
 
-                # Append self
-                self.track = pd.concat([self.track, gdf])
+                # Append the GeoDataFrame to the track
+                if hasattr(self, "track"):
+                    self.track = pd.concat([self.track, gdf], ignore_index=True)
+                else:
+                    self.track = gdf
 
             # Done with this
             self.track = self.track.reset_index(drop=True)

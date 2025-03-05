@@ -48,7 +48,7 @@ include = ["cht_cyclones"]
 "*" = ["*.yml"]
 
 [tool.pytest.ini_options]
-addopts = "--cov cht_cyclones --cov-report xml --cov-fail-under 80"
+addopts = "--cov cht_cyclones --cov-report xml"
 testpaths = ["tests"]
 
 

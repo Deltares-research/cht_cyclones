@@ -80,17 +80,21 @@ class TropicalCycloneTrack:
         # Read all the lines first
         with open(filename, "r") as f:
             lines = f.readlines()
+        data_start = self._read_data_start(lines)
 
         # Read the name
-        for line in lines:
+        self.name = None
+        for line in lines[:data_start]:
             if line.startswith("Name"):
                 string_value = line[5:]
                 string_value = "".join(ch for ch in string_value if ch.isalnum())
                 self.name = string_value
                 break
+        if self.name is None:
+            raise ValueError("Could not find the name of the tropical cyclone")
 
-        self._read_header_ddb_cyc(lines)
-        self._read_data_ddb_cyc(lines)
+        self._read_header_ddb_cyc(lines[:data_start])
+        self._read_data_ddb_cyc(lines[data_start:])
 
     def _read_trk(self, filename: Path) -> None:
         # Initialize variables
@@ -328,8 +332,19 @@ class TropicalCycloneTrack:
         if self.debug == 1:
             print("Successfully read track - trk")
 
-    def _read_header_ddb_cyc(self, lines: list[str]) -> None:
-        for line in lines:
+    def _read_data_start(self, lines: list[str]) -> int:
+        data_start = None
+        for i, line in enumerate(lines):
+            if line.startswith("##    Datetime ") or line.startswith("#   Date   Time"):
+                data_start = i
+                break
+
+        if data_start is None:
+            raise ValueError("Could not find the start of the data in the file")
+        return data_start
+
+    def _read_header_ddb_cyc(self, header_lines: list[str]) -> None:
+        for line in header_lines:
             for prefix, attribute in self.LINE_PREFIX_MAPPING_DDB_CYC.items():
                 if line.startswith(prefix):
                     string_value = self._extract_header_value(
@@ -350,19 +365,9 @@ class TropicalCycloneTrack:
                         setattr(self, attribute, string_value)
                     break  # Exit the loop once a match is found
 
-    def _read_data_ddb_cyc(self, lines: list[str]) -> None:
-        # Read data start
-        data_start = None
-        for i, line in enumerate(lines):
-            if line.startswith("##    Datetime ") or line.startswith("#   Date   Time"):
-                data_start = i
-                break
-
-        if data_start is None:
-            raise ValueError("Could not find the start of the data in the file")
-
+    def _read_data_ddb_cyc(self, data_lines: list[str]) -> None:
         # Read data
-        for j, line in enumerate(iterable=lines[data_start:], start=data_start):
+        for line in data_lines:
             if line.strip().startswith("#"):
                 continue
             # Extract the date and values

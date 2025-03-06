@@ -1113,6 +1113,7 @@ def read_trk(filename):
 
     return gdf
 
+
 def read_csv_pagasa(filename):
     # Read the track from a PAGASA csv file
     # Create a new empty GDF
@@ -1129,7 +1130,7 @@ def read_csv_pagasa(filename):
         tc_time = datetime.strptime(date_string, date_format)
         tc_time_string = tc_time.strftime("%Y%m%d %H%M%S")
         y = row["Latitude"]
-        x = row["Longitude"]        
+        x = row["Longitude"]
         vmax = no_data
         pc = row["CentralPressure"]
         RMW = row["rMax"]
@@ -1188,7 +1189,7 @@ def read_csv_pagasa(filename):
 
     return gdf
 
-        
+
 def write_cyc(filename, gdf, include_header=True):
     """Write to cyc format"""
     with open(filename, "wt") as f:

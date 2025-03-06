@@ -20,7 +20,10 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
         os: [ubuntu-latest, macos-latest, windows-latest]
-
+        include:
+          - python-version: "3.12"
+            os: ubuntu-latest
+            coverage: true  # Mark only this combination for coverage to prevent error: https://sonarsource.atlassian.net/browse/SQSCANGHA-83 & https://community.sonarsource.com/t/my-first-analyses-has-failed-when-added-project-analysis-id-38152260-0ab1-4a18-846f-1f2371079b5f/134798/27
     steps:
       - uses: actions/checkout@v3
         with:
@@ -45,6 +48,27 @@ jobs:
       - name: Test with pytest
         run: |
           conda run -n cht_cyclones pytest tests
+
+      - name: Upload coverage report
+        if: matrix.coverage == true
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+sonar_scan:
+    name: SonarQube Scan
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage-report
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v4

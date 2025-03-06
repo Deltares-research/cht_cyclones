@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
@@ -59,104 +60,23 @@ class TropicalCycloneTrack:
         self.EPSG = epsg
         self.debug = debug
 
-    def read(self, filename, fmt):
+    def read(self, filename: Path, fmt: str) -> None:
         if fmt == "ddb_cyc":
             self._read_ddb_cyc(filename)
         elif fmt == "trk":
             self._read_trk(filename)
         else:
-            raise Exception("This file format is not supported as read track!")
+            raise ValueError("This file format is not supported as read track!")
 
-    def write(self, filename, fmt):
-        # If ddb_cyc
+    def write(self, filename: Path, fmt: str) -> None:
         if fmt == "ddb_cyc":
-            # Open file
-            with open(filename, "wt") as f:
-                # Print header
-                f.writelines(
-                    "# Tropical Cyclone Toolbox - Coastal Hazards Toolkit - "
-                    + self.creation_time.strftime(dateformat_module)
-                    + "\n"
-                )
-
-                # Print rest
-                f.writelines('Name                   "' + self.name + '"\n')
-                f.writelines("WindProfile            " + self.wind_profile + "\n")
-                f.writelines(
-                    "WindPressureRelation   " + self.wind_pressure_relation + "\n"
-                )
-                f.writelines("RMaxRelation           " + self.rmw_relation + "\n")
-                f.writelines(
-                    "Backgroundpressure     " + str(self.background_pressure) + "\n"
-                )
-                f.writelines("PhiSpiral              " + str(self.phi_spiral) + "\n")
-                f.writelines(
-                    "WindConversionFactor   " + str(self.wind_conversion_factor) + "\n"
-                )
-                f.writelines(
-                    "SpiderwebRadius        " + str(self.spiderweb_radius) + "\n"
-                )
-                f.writelines(
-                    "NrRadialBins           " + str(self.nr_radial_bins) + "\n"
-                )
-                f.writelines(
-                    "NrDirectionalBins      " + str(self.nr_directional_bins) + "\n"
-                )
-                epsg = self.track.crs.name
-                f.writelines("EPSG                   " + epsg + "\n")
-                f.writelines(
-                    "UnitIntensity          " + str(self.unit_intensity) + "\n"
-                )
-                f.writelines("UnitWindRadii          " + str(self.unit_radii) + "\n")
-
-                # Print header for the track
-                f.writelines("#  \n")
-                f.writelines(
-                    "#   Date   Time               Lat        Lon         Vmax       Pc          Rmax         R35(NE)      R35(SE)     R35(SW)     R35(NW)     R50(NE)     R50(SE)    R50(SW)    R50(NW)     R65(NE)     R65(SE)     R65(SW)     R65(NW)    R100(NE)    R100(SE)    R100(SW)    R100(NE)  \n"
-                )
-                f.writelines("#  \n")
-
-                # Print the actual track
-                for i in range(len(self.track)):
-                    f.writelines(self.track.datetime[i].rjust(20))
-                    coords = self.track.geometry[i]
-                    f.writelines(str(round(coords.y, 2)).rjust(12))
-                    f.writelines(str(round(coords.x, 2)).rjust(12))
-
-                    f.writelines(str(round(self.track.vmax[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.pc[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.RMW[i], 1)).rjust(12))
-
-                    f.writelines(str(round(self.track.R35_NE[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R35_SE[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R35_SW[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R35_NW[i], 1)).rjust(12))
-
-                    f.writelines(str(round(self.track.R50_NE[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R50_SE[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R50_SW[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R50_NW[i], 1)).rjust(12))
-
-                    f.writelines(str(round(self.track.R65_NE[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R65_SE[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R65_SW[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R65_NW[i], 1)).rjust(12))
-
-                    f.writelines(str(round(self.track.R100_NE[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R100_SE[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R100_SW[i], 1)).rjust(12))
-                    f.writelines(str(round(self.track.R100_NW[i], 1)).rjust(12))
-
-                    f.writelines("\n")
-
-            if self.debug == 1:
-                print("Successfully written track - ddb_cyc")
+            self._write_ddb_cyc(filename)
         else:
-            print(
-                'For other methods of writing the track; please used the "tc.track.to_file" option'
+            raise ValueError(
+                "Unsupported file format for writing the track! For other methods of writing the track; please used the 'tc.track.to_file' option"
             )
 
-    def _read_ddb_cyc(self, filename):
+    def _read_ddb_cyc(self, filename: Path) -> None:
         # Read all the lines first
         with open(filename, "r") as f:
             lines = f.readlines()
@@ -172,7 +92,7 @@ class TropicalCycloneTrack:
         self._read_header_ddb_cyc(lines)
         self._read_data_ddb_cyc(lines)
 
-    def _read_trk(self, filename):
+    def _read_trk(self, filename: Path) -> None:
         # Initialize variables
         lasttime = np.datetime64(datetime.strptime("2000010118", "%Y%m%d%H"))
         newtime2 = lasttime.astype("O")
@@ -408,7 +328,7 @@ class TropicalCycloneTrack:
         if self.debug == 1:
             print("Successfully read track - trk")
 
-    def _read_header_ddb_cyc(self, lines: list[str]):
+    def _read_header_ddb_cyc(self, lines: list[str]) -> None:
         for line in lines:
             for prefix, attribute in self.LINE_PREFIX_MAPPING_DDB_CYC.items():
                 if line.startswith(prefix):
@@ -430,7 +350,7 @@ class TropicalCycloneTrack:
                         setattr(self, attribute, string_value)
                     break  # Exit the loop once a match is found
 
-    def _read_data_ddb_cyc(self, lines: list[str]):
+    def _read_data_ddb_cyc(self, lines: list[str]) -> None:
         # Read data start
         data_start = None
         for i, line in enumerate(lines):
@@ -481,13 +401,88 @@ class TropicalCycloneTrack:
         if self.debug == 1:
             print("Successfully read track - ddb_cyc")
 
+    def _write_ddb_cyc(self, filename: Path) -> None:
+        # Open file
+        with open(filename, "wt") as f:
+            # Print header
+            f.writelines(
+                "# Tropical Cyclone Toolbox - Coastal Hazards Toolkit - "
+                + self.creation_time.strftime(dateformat_module)
+                + "\n"
+            )
+
+            # Print rest
+            f.writelines('Name                   "' + self.name + '"\n')
+            f.writelines("WindProfile            " + self.wind_profile + "\n")
+            f.writelines("WindPressureRelation   " + self.wind_pressure_relation + "\n")
+            f.writelines("RMaxRelation           " + self.rmw_relation + "\n")
+            f.writelines(
+                "Backgroundpressure     " + str(self.background_pressure) + "\n"
+            )
+            f.writelines("PhiSpiral              " + str(self.phi_spiral) + "\n")
+            f.writelines(
+                "WindConversionFactor   " + str(self.wind_conversion_factor) + "\n"
+            )
+            f.writelines("SpiderwebRadius        " + str(self.spiderweb_radius) + "\n")
+            f.writelines("NrRadialBins           " + str(self.nr_radial_bins) + "\n")
+            f.writelines(
+                "NrDirectionalBins      " + str(self.nr_directional_bins) + "\n"
+            )
+            epsg = self.track.crs.name
+            f.writelines("EPSG                   " + epsg + "\n")
+            f.writelines("UnitIntensity          " + str(self.unit_intensity) + "\n")
+            f.writelines("UnitWindRadii          " + str(self.unit_radii) + "\n")
+
+            # Print header for the track
+            f.writelines("#  \n")
+            f.writelines(
+                "#   Date   Time               Lat        Lon         Vmax       Pc          Rmax         R35(NE)      R35(SE)     R35(SW)     R35(NW)     R50(NE)     R50(SE)    R50(SW)    R50(NW)     R65(NE)     R65(SE)     R65(SW)     R65(NW)    R100(NE)    R100(SE)    R100(SW)    R100(NE)  \n"
+            )
+            f.writelines("#  \n")
+
+            # Print the actual track
+            for i in range(len(self.track)):
+                f.writelines(self.track.datetime[i].rjust(20))
+                coords = self.track.geometry[i]
+                f.writelines(str(round(coords.y, 2)).rjust(12))
+                f.writelines(str(round(coords.x, 2)).rjust(12))
+
+                f.writelines(str(round(self.track.vmax[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.pc[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.RMW[i], 1)).rjust(12))
+
+                f.writelines(str(round(self.track.R35_NE[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R35_SE[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R35_SW[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R35_NW[i], 1)).rjust(12))
+
+                f.writelines(str(round(self.track.R50_NE[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R50_SE[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R50_SW[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R50_NW[i], 1)).rjust(12))
+
+                f.writelines(str(round(self.track.R65_NE[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R65_SE[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R65_SW[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R65_NW[i], 1)).rjust(12))
+
+                f.writelines(str(round(self.track.R100_NE[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R100_SE[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R100_SW[i], 1)).rjust(12))
+                f.writelines(str(round(self.track.R100_NW[i], 1)).rjust(12))
+
+                f.writelines("\n")
+
+        if self.debug == 1:
+            print("Successfully written track - ddb_cyc")
+
     @staticmethod
-    def _extract_header_value(line: str, start_index: int):
+    def _extract_header_value(line: str, start_index: int) -> str:
         string_value = line[start_index:].strip()
         return "".join(ch for ch in string_value if ch.isalnum())
 
     @staticmethod
-    def _extract_data_values_from_line(line: str):
+    def _extract_data_values_from_line(line: str) -> tuple[datetime, list[float]]:
         values = line.strip().split()
         date_format = "%Y%m%d %H%M%S"
         date_string = f"{values[0]} {values[1]}"

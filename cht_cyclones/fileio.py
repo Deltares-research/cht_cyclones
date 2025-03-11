@@ -383,6 +383,7 @@ class TropicalCycloneTrack:
                 zip(
                     ["datetime"] + self.DDB_CYC_FIELD_NAMES,
                     [tc_time_string] + values[2:],
+                    strict=True,
                 )
             )
 

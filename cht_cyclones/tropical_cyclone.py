@@ -1982,11 +1982,23 @@ class TropicalCycloneEnsemble:
         best_track_lon2 = best_track_lon2(ensemble_time2)
         best_track_lat2 = CubicSpline(best_track_time2, best_track_lat)
         best_track_lat2 = best_track_lat2(ensemble_time2)
-        best_track_vmax2 = interp1d(best_track_time2, best_track_vmax)
+        best_track_vmax2 = interp1d(
+            best_track_time2,
+            best_track_vmax,
+            fill_value="extrapolate",  # stop errors when trying to extrapolate outside of the range: https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html
+        )
         best_track_vmax2 = best_track_vmax2(ensemble_time2)
-        best_track_rmw2 = interp1d(best_track_time2, best_track_rmw)
+        best_track_rmw2 = interp1d(
+            best_track_time2,
+            best_track_rmw,
+            fill_value="extrapolate",  # stop errors when trying to extrapolate outside of the range: https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html
+        )
         best_track_rmw2 = best_track_rmw2(ensemble_time2)
-        best_track_ar352 = interp1d(best_track_time2, best_track_ar35)
+        best_track_ar352 = interp1d(
+            best_track_time2,
+            best_track_ar35,
+            fill_value="extrapolate",  # stop errors when trying to extrapolate outside of the range: https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.interp1d.html
+        )
         best_track_ar352 = best_track_ar352(ensemble_time2)
         best_track_ar352 = (
             best_track_ar352 - best_track_rmw2
@@ -2558,9 +2570,15 @@ class TropicalCycloneEnsemble:
             )
 
         # Show wind speeds
+        fig, ax = plt.subplots()
         for nn, member in enumerate(self.members):
-            plt.plot(datetime_ensemble, member.track.vmax)
-        plt.show()
+            ax.plot(datetime_ensemble, member.track.vmax, label=member.name)
+
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Wind speed (m/s)")
+        ax.legend()
+        filename = os.path.join(folder_path, "wind_speeds.png")
+        plt.savefig(filename)
 
 
 ######

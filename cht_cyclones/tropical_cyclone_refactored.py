@@ -199,7 +199,9 @@ class TropicalCyclone:
         # 6. Go over time steps in the track
         for it in range(len(self.track_metric.gdf)):
             t = datetime.strptime(self.track_metric.gdf.datetime[it], dateformat_module)
-            print(f"Processing cyclone track point {t} ({it + 1} of {len(self.track_metric.gdf)})")
+            print(
+                f"Processing cyclone track point {t} ({it + 1} of {len(self.track_metric.gdf)})"
+            )
 
             # Progress bar
             if progress_bar:

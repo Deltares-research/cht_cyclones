@@ -16,20 +16,22 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
 requires-python = ">=3.10"
-dependencies = ["numpy",
-                "scipy",
-				"pandas",
-				"geopandas",
-				"matplotlib",
-				"shapely",
-				"xarray",
-				"fiona",
-				"toml",
-				"boto3",
-				"python-dateutil",
-				"cht_utils",
-				"geojson",
-				"netCDF4"]
+dependencies = [
+	"numpy",
+    "scipy",
+	"pandas",
+	"geopandas",
+	"matplotlib",
+	"shapely",
+	"xarray",
+	"fiona",
+	"toml",
+	"boto3",
+	"python-dateutil",
+	"cht_utils",
+	"geojson",
+	"netCDF4"
+]
 dynamic = ["version"]
 
 [project.optional-dependencies]
@@ -50,13 +52,3 @@ include = ["cht_cyclones"]
 [tool.pytest.ini_options]
 addopts = "--cov cht_cyclones --cov-report xml"
 testpaths = ["tests"]
-
-
-#[tool.setuptools.package-data]
-#"cht_observations" = ["py.typed"]
-#"cht_cyclones" = ["*.yml"]
-
-# TODO
-#[project.urls]
-#Documentation = "https://deltares.github.io/CoastalHazardTools"
-#Source = "https://github.com/Deltares/CoastalHazardTools"

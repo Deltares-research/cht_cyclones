@@ -319,9 +319,9 @@ class TropicalCycloneTrack:
                 dpcdt = 0.0
 
             # Save as part of the track
-            self.gdf.vtx[it] = ux  # forward speed in x
-            self.gdf.vty[it] = uy  # forward speed in y
-            self.gdf.dpcdt[it] = dpcdt  # pressure difference in time
+            self.gdf.loc[it, "vtx"] = ux  # forward speed in x
+            self.gdf.loc[it, "vty"] = uy  # forward speed in y
+            self.gdf.loc[it, "dpcdt"] = dpcdt  # pressure difference in time
 
     # Support functions for creating spiderweb
     # 1. estimate_missing_values => still assuming imperial system
@@ -345,11 +345,10 @@ class TropicalCycloneTrack:
                         rhoa=config["rho_air"],
                     )
 
-                    # # place this
-                    # if self.unit_intensity == "knots":
-                    #     self.gdf.vmax[it] = vmax / knots_to_ms
-                    # else:
-                    self.gdf.vmax[it] = vmax
+                    if self.unit_intensity == "knots":
+                        vmax = vmax / knots_to_ms
+
+                    self.gdf.loc[it, "vmax"] = vmax
 
             # determine pressure
             if np.isnan(self.gdf.pc[it]):
@@ -375,7 +374,7 @@ class TropicalCycloneTrack:
                         )
 
                     # place this
-                    self.gdf.pc[it] = pc
+                    self.gdf.loc[it, "pc"] = pc
 
             # radius of maximum winds (RMW)
             if np.isnan(self.gdf.rmw[it]):
@@ -393,9 +392,9 @@ class TropicalCycloneTrack:
 
                     # Place value: output is in km
                     if self.unit_radii == "nm":
-                        self.gdf.rmw[it] = rmax["mode"] / nm_to_km
+                        self.gdf.loc[it, "rmw"] = rmax["mode"] / nm_to_km
                     else:
-                        self.gdf.rmw[it] = rmax["mode"]
+                        self.gdf.loc[it, "rmw"] = rmax["mode"]
 
                 # Gross et al. 2004
                 elif config["rmw_relation"] == "gross2004":
@@ -415,17 +414,17 @@ class TropicalCycloneTrack:
 
                     # Place value: output is in nm
                     if self.unit_radii == "nm":
-                        self.gdf.rmw[it] = rmax
+                        self.gdf.loc[it, "rmw"] = rmax
                     else:
-                        self.gdf.rmw[it] = rmax * nm_to_km
+                        self.gdf.loc[it, "rmw"] = rmax * nm_to_km
 
                 # Simple constant value of 25 nm
                 elif config["rmw_relation"] == "constant_25nm":
                     # Place 25 nm
                     if self.unit_radii == "nm":
-                        self.gdf.rmw[it] = float(25)
+                        self.gdf.loc[it, "rmw"] = float(25)
                     else:
-                        self.gdf.rmw[it] = float(25) * nm_to_km
+                        self.gdf.loc[it, "rmw"] = float(25) * nm_to_km
 
             # radius of gale force winds (R35)
             if config["wind_profile"] == "holland2010":
@@ -447,23 +446,23 @@ class TropicalCycloneTrack:
                             )
 
                         if self.unit_radii == "nm":
-                            self.gdf.r35_NE[it] = (
+                            self.gdf.loc[it, "r35_ne"] = (
                                 dr35["mode"] / nm_to_km + self.gdf.rmw[it]
                             )
-                            self.gdf.r35_se[it] = (
+                            self.gdf.loc[it, "r35_se"] = (
                                 dr35["mode"] / nm_to_km + self.gdf.rmw[it]
                             )
-                            self.gdf.r35_sw[it] = (
+                            self.gdf.loc[it, "r35_sw"] = (
                                 dr35["mode"] / nm_to_km + self.gdf.rmw[it]
                             )
-                            self.gdf.r35_nw[it] = (
+                            self.gdf.loc[it, "r35_nw"] = (
                                 dr35["mode"] / nm_to_km + self.gdf.rmw[it]
                             )
                         else:
-                            self.gdf.r35_NE[it] = dr35["mode"] + self.gdf.rmw[it]
-                            self.gdf.r35_se[it] = dr35["mode"] + self.gdf.rmw[it]
-                            self.gdf.r35_sw[it] = dr35["mode"] + self.gdf.rmw[it]
-                            self.gdf.r35_nw[it] = dr35["mode"] + self.gdf.rmw[it]
+                            self.gdf.loc[it, "r35_ne"] = dr35["mode"] + self.gdf.rmw[it]
+                            self.gdf.loc[it, "r35_se"] = dr35["mode"] + self.gdf.rmw[it]
+                            self.gdf.loc[it, "r35_sw"] = dr35["mode"] + self.gdf.rmw[it]
+                            self.gdf.loc[it, "r35_nw"] = dr35["mode"] + self.gdf.rmw[it]
 
     # # 2A. cut_off_low_wind_speeds (should not do this anymore)
     # def cut_off_low_wind_speeds(self):
@@ -721,14 +720,24 @@ def read_cyc(filename):
     with open(filename, "r") as f:
         lines = f.readlines()
 
-    for line in lines:
+    tleap_add = 0
+    for iline, line in enumerate(lines):        
         if line[0] == "#":
             continue
         # Get values
         line = line.split()
         date_format = "%Y%m%d %H%M%S"
         date_string = line[0] + " " + line[1]
-        tc_time = datetime.strptime(date_string, date_format)
+        # Check if it is not a leap year and the date is 29 February
+        # This can potentially happen in the case of synthetic track data
+        if date_string[4:8] == "0229":
+            year = int(date_string[0:4])
+            if (year % 4 != 0) or ((year % 100 == 0) and (year % 400 != 0)):
+                # Not a leap year, so add one day to the date
+                tleap_add = 1
+                date_string = date_string[0:4] + "0228" + date_string[8:]
+        tc_time = datetime.strptime(date_string, date_format) + timedelta(
+            hours=tleap_add * 24)
         tc_time_string = tc_time.strftime(date_format)
         y = float(line[2])
         x = float(line[3])

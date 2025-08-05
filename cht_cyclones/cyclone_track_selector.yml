@@ -1,7 +1,7 @@
 window:
   title: Select Cyclone Track ...
   width: 800
-  height: 500
+  height: 400
   module: cht_cyclones.track_selector
   variable_group: cyclone_track_selector
   modal: true

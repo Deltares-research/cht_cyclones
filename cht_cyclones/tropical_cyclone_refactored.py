@@ -330,6 +330,8 @@ class TropicalCyclone:
                 # Check which hemisphere we are
                 if latitude >= 0:
                     # northern hemisphere
+                    #phisp = self.config["phi_spiral"] * np.exp(-r / 100.0)
+                    #dr = 90.0 + phi[iphi] + phisp
                     dr = 90.0 + phi[iphi] + self.config["phi_spiral"]
                 else:
                     # southern hemisphere
@@ -340,8 +342,10 @@ class TropicalCyclone:
                 air_pressure[:, iphi] = 100 * pr
 
             # Wind speed with asymmetry
-            # vnorm = wind_speed / np.max(wind_speed)
-            vnorm = np.zeros(np.shape(wind_speed)) + 1.0
+            # Scale vnorm from 0.0 to 1.0 according to the maximum wind speed
+            # vnorm = np.sqrt(wind_speed / np.max(wind_speed))
+            # vnorm = np.zeros(np.shape(wind_speed)) + 1.0
+            vnorm = np.transpose(np.tile(np.minimum(r / rmax, 1.0), (len(phi), 1)))
             u_prop = vtcor * np.cos((phit + phia) * np.pi / 180)
             v_prop = vtcor * np.sin((phit + phia) * np.pi / 180)
             wind_x = (
@@ -352,6 +356,11 @@ class TropicalCyclone:
                 wind_speed * np.sin(wind_to_direction_cart * np.pi / 180)
                 + v_prop * vnorm
             )
+            vmag = np.sqrt(wind_x**2 + wind_y**2)
+            wind_x = vmag * np.cos(wind_to_direction_cart * np.pi / 180)
+            wind_y = vmag * np.sin(wind_to_direction_cart * np.pi / 180)
+
+
 
             # Rainfall (if required)
             if self.config["include_rainfall"]:

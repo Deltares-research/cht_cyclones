@@ -378,14 +378,17 @@ def compute_wind_field(
         wind_speed[iphi, :] = vr
         if lat >= 0:
             # northern hemisphere
-            dr = 90 + phi[iphi] + phi_spiral
+            phisp = phi_spiral * np.exp(-r / 100.0)
+            dr = 90 + phi[iphi] + phisp
         else:
             # southern hemisphere
             dr = -90 + phi[iphi] - phi_spiral
         wind_to_direction_cart[iphi, :] = dr
 
-    vnorm = wind_speed / np.max(wind_speed)
-    vnorm = np.zeros(np.shape(wind_speed)) + 1.0
+    # vnorm = np.sqrt(wind_speed / np.max(wind_speed))
+    # vnorm = np.zeros(np.shape(wind_speed)) + 1.0
+    # let vnorm be array of same size as wind_speed
+    vnorm = np.tile(np.minimum(r / rmax, 1.0), (len(phi), 1))
 
     ux = vt * np.cos((phit + phia) * np.pi / 180)
     uy = vt * np.sin((phit + phia) * np.pi / 180)

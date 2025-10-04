@@ -437,6 +437,8 @@ class TropicalCycloneSpiderweb:
         fid.close()
 
     def get_track(self, config):
+        """Returns a TropicalCycloneTrack object"""
+
         track = TropicalCycloneTrack()
         r = self.ds["range"].values
 
@@ -543,3 +545,91 @@ class TropicalCycloneSpiderweb:
         track.gdf = track.gdf.set_crs(crs=CRS(4326), inplace=True)
 
         return track
+
+    def get_data_at_time(self, time, x, y):
+        # Get the spiderweb at one time. Return a XR Dataset with spiderweb at that time.
+        # Convert time to np.datetime64 (it is now probably a Timestamp object)
+        # First remove timezone
+        if isinstance(time, pd.Timestamp):
+            time = time.tz_localize(None)
+        if not isinstance(time, np.datetime64):
+            time = np.datetime64(time)
+
+        times = self.ds["time"]
+        # Find the indices before (i0) and after (i1) the requested time, and the weight (w1)
+        if time < times.values[0] or time > times.values[-1]:
+            return None, None, None, None
+
+        i0 = np.where(times.values <= time)[0][-1]
+        i1 = np.where(times.values > time)[0][0]
+        w1 = (time - times.values[i0]) / (times.values[i1] - times.values[i0])
+
+        # Now create a new SpiderWeb object with just one point (time)
+        ds = xr.Dataset()
+        for var in self.ds.data_vars:
+            if "time" in self.ds[var].dims:
+                if i0 == i1:
+                    ds[var] = self.ds[var].isel(time=i0)
+                else:
+                    ds[var] = (
+                        (1.0 - w1) * self.ds[var].isel(time=i0)
+                        + w1 * self.ds[var].isel(time=i1)
+                    )
+            else:
+                ds.ds[var] = self.ds[var]
+
+        x0 = ds["longitude_eye"].values
+        y0 = ds["latitude_eye"].values 
+        radius = ds["range"].values
+        dr = radius[1] - radius[0]
+        phi = ds["azimuth"].values
+        dphi = phi[0] - phi[1]
+        # Determine distance and azimuth of (x,y) to (x0,y0)
+        dx = (x - x0) * 111320 * np.cos(y0 * np.pi / 180)
+        dy = (y - y0) * 111320
+
+        distance = np.sqrt(dx ** 2 + dy ** 2)
+        azimuth = np.arctan2(dy, dx) * 180 / np.pi
+
+        # Make sure azimuth is between 0 and 360
+        # phi = phi + 90.0
+        # azimuth = azimuth + 90.0
+        azimuth = azimuth % -360.0
+        dazimuth = azimuth - 90.0
+        dazimuth = dazimuth % -360.0
+
+        # Find the index of the closest radius and azimuth
+        ir = (distance / dr).astype(int)
+        ir[np.where(ir >= len(radius))] = -1
+        # phi goes from 90 to -260 in step of dphi, so find the index of the closest
+        # azimuth is typically a 2D array
+        iphi = ( - dazimuth / dphi ).astype(int)
+
+        # Now create a new dataset with just the data at that radius and azimuth
+        u = ds["wind_x"].values[ir, iphi]
+        v = ds["wind_y"].values[ir, iphi]
+        p = ds["pressure"].values[ir, iphi]
+        if "precipitation" in ds.data_vars:
+            pr = ds["precipitation"].values[ir, iphi]
+        else:
+            pr = None
+
+        return x0, y0, u, v, p, pr
+
+
+
+
+        # idx = np.where(self.ds["time"].values == np.datetime64(time))
+        # if len(idx[0]) == 0:
+        #     return None
+        # it = idx[0][0]
+
+        # # Create new dataset
+        # ds_out = xr.Dataset()
+        # for var in self.ds.data_vars:
+        #     if "time" in self.ds[var].dims:
+        #         ds_out[var] = self.ds[var].isel(time=it)
+        #     else:
+        #         ds_out[var] = self.ds[var]
+
+        return ds_out

@@ -484,6 +484,46 @@ class TropicalCyclone:
         """Merge with meteo dataset. Not implemented yet."""
         pass
 
+    def to_meteo_dataset(self, meteo_dataset_in):
+        """Merge with meteo dataset. Not implemented yet."""
+        # Now we loop through all times in the meteo dataset
+        times = meteo_dataset_in.ds["time"].values
+        lon = meteo_dataset_in.ds["lon"].values
+        lat = meteo_dataset_in.ds["lat"].values
+        # Make a meshgrid of lon and lat
+        lon, lat = np.meshgrid(lon, lat)
+        radius = self.spiderweb.ds["range"].values[-1]
+        for itime, time in enumerate(times):
+            # Get spiderweb at one time. Return a XR Dataset
+            x0, y0, u, v, p, pr = self.spiderweb.get_data_at_time(time, lon, lat) # lon and lat can also be numpy arrays
+
+            # Determine weight based on distance to eye x0, y0
+            # Weight is 1 where distance / radius < merge_frac, and 0 where distance / radius > 1
+            # In between, weight is a linear function of distance
+            dx = (lon - x0) * 111320 * np.cos(y0 * np.pi / 180)
+            dy = (lat - y0) * 111320
+            distance = np.sqrt(dx ** 2 + dy ** 2)
+            merge_frac = 0.5
+            weight = np.zeros(np.shape(distance))
+            weight[(distance >= 0) & (distance < radius * merge_frac)] = 1
+            weight[(distance >= radius * merge_frac) & (distance < radius)] = (radius - distance[(distance >= radius * merge_frac) & (distance < radius)]) / (radius * (1 - merge_frac))
+
+            # Loop through variables in ds and merge with meteo_dataset_in
+            if u is not None:
+                var = "wind_u"
+                meteo_dataset_in.ds[var].values[itime, :, :] = meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight) + u * weight
+            if v is not None:
+                var = "wind_v"
+                meteo_dataset_in.ds[var].values[itime, :, :] = meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight) + v * weight
+            if p is not None:
+                var = "barometric_pressure"
+                meteo_dataset_in.ds[var].values[itime, :, :] = meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight) + p * weight
+            if pr is not None:
+                var = "precipitation"
+                meteo_dataset_in.ds[var].values[itime, :, :] = meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight) + pr * weight
+
+        return meteo_dataset_in
+
     def get_track_from_meteo_dataset(self, meteo_dataset):
         """Get the track from a meteo dataset. Not implemented yet."""
         # Find the track(s)

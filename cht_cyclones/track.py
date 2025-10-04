@@ -710,6 +710,13 @@ class TropicalCycloneTrack:
 
         return gdf
 
+    def get_eye_at_time(self, time):
+        """Get the eye position at a certain time"""
+        # A time is provided and it is typically between two time steps
+        # So we need to interpolate the position
+        gdf_point, index = interpolate_to_point(self.gdf, time, method="spline")
+        return gdf_point, index
+
 
 def read_cyc(filename):
     # cyc format

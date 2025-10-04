@@ -10,12 +10,13 @@ element:
 - style: edit
   variable: distance
   method: edit_filter
-  text: Distance (km)
+  text: Search Radius (km)
   position:
     x: 100
     y: 70
     width: 50
     height: 20
+  tooltip: Search radius in km for finding cyclone tracks
 - style: edit
   variable: year0
   method: edit_filter
@@ -25,6 +26,7 @@ element:
     y: 45
     width: 50
     height: 20
+  tooltip: Start year for searching cyclone tracks  
 - style: edit
   variable: year1
   method: edit_filter
@@ -33,6 +35,70 @@ element:
     y: 45
     width: 50
     height: 20
+  tooltip: End year for searching cyclone tracks  
+- style: edit
+  variable: vmax0
+  method: edit_filter
+  text: Vmax (kts)
+  position:
+    x: 100
+    y: 20
+    width: 50
+    height: 20
+  tooltip: Minimum maximum wind speed for searching cyclone tracks    
+- style: edit
+  variable: vmax1
+  method: edit_filter
+  position:
+    x: 160
+    y: 20
+    width: 50
+    height: 20
+  tooltip: Maximum maximum wind speed for searching cyclone tracks
+- style: edit
+  variable: lon
+  method: edit_filter
+  text: Lon (deg)
+  position:
+    x: 300
+    y: 70
+    width: 50
+    height: 20
+  tooltip: Longitude of circle centre for searching cyclone tracks    
+- style: edit
+  variable: lat
+  method: edit_filter
+  text: Lat (deg)
+  position:
+    x: 300
+    y: 45
+    width: 50
+    height: 20
+  tooltip: Latitude of circle centre for searching cyclone tracks
+- style: pushbutton
+  text: Reset Search Location
+  method: reset_search_location
+  position:
+    x: 250
+    y: 20
+    width: 100
+    height: 20
+  tooltip: Reset the search location to the current map centre
+- style: listbox
+  variable: storm_index
+  method: select_track_from_list
+  text: Name
+  position:
+    x: 400
+    y: 10
+    width: 100
+    height: 80
+  select: item
+  option_string:
+    variable: storm_names
+  option_value:
+    variable: storm_indices
+  tooltip: Select a cyclone track from the list
 - style: mapbox
   id: track_selector_map
   position:

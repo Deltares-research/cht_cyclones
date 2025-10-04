@@ -112,13 +112,14 @@ class TropicalCyclone:
 
     def read_track(self, filename, format=None):
         # Read track file (automatically determine format)
-        config = self.track.read(filename, format=format)
+        config, name = self.track.read(filename, format=format)
         if config is not None:
             # Old ddb_cyc format with config in it
             self.set_default_config()
             # Now loop over keys in cfg and update self.config
             for key in config:
                 self.config[key] = config[key]
+        self.name = name        
 
     def read_track_files_and_merge(self, track_file_list, tau=0):
         # Read track files and merge them

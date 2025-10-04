@@ -9,6 +9,8 @@ from pyproj import CRS, Geod
 from scipy.interpolate import CubicSpline, interp1d
 from shapely.geometry import LineString, Point
 
+import cht_cyclones.fileio.jmv30 as jmv30
+import cht_cyclones.fileio.jtwc_advisory_text as jtwc_advisory_text
 from cht_cyclones.utils import gdf_to_geojson_js, gdf_to_pli
 from cht_cyclones.wind_profiles import wind_radii_nederhoff, wpr_holland2008
 
@@ -30,48 +32,70 @@ class TropicalCycloneTrack:
     def read(self, filename, tau=0, format="cyc"):
         """Read a tropical cyclone track from a file."""
 
-        # Try to read cyc file new format
-        try:
-            gdf = read_cyc(filename)
-            self.gdf = gdf
-            self.apply_tau(tau)
-            return None
-        except Exception:
-            pass
+        config = None
+        name   = None
 
-        # Try to read trk file (COAMPS-TC)
-        try:
-            gdf = read_trk(filename)
+        if format == "jmv30":
+            # Read JMV 3.0 file (*.tcw)
+            gdf, name = jmv30.to_gdf(filename)
             self.gdf = gdf
-            # Get rid of NaN values in vmax
-            self.fix_nan_vmax()
-            self.apply_tau(tau)
-            return None
-        except Exception:
-            pass
+            return config, name
 
-        # Try to read csv file (from PAGASA)
-        try:
-            gdf = read_csv_pagasa(filename)
+        elif format == "jtwc_advisory_text":
+            # Read JTWC advisory text file
+            gdf, name = jtwc_advisory_text.to_gdf(filename)
             self.gdf = gdf
-            # Get rid of NaN values in vmax
-            self.fix_nan_vmax()
-            # self.apply_tau(tau)
-            return None
-        except Exception:
-            pass
+            return config, name
 
-        # Try to read ddb cyc file
-        try:
-            gdf, config, name = read_ddb_cyc(filename)
-            self.gdf = gdf
-            self.apply_tau(tau)
-            # Do not do anything with name
-            return config
-        except Exception:
-            pass
+        elif format == "cyc":
+
+            # Try to read cyc file new format
+            try:
+                gdf = read_cyc(filename)
+                self.gdf = gdf
+                self.apply_tau(tau)
+                return config, name
+            except Exception:
+                pass
+
+            # Try to read trk file (COAMPS-TC)
+            try:
+                gdf = read_trk(filename)
+                self.gdf = gdf
+                # Get rid of NaN values in vmax
+                self.fix_nan_vmax()
+                self.apply_tau(tau)
+                return config, name
+            except Exception:
+                pass
+
+            # Try to read csv file (from PAGASA)
+            try:
+                gdf = read_csv_pagasa(filename)
+                self.gdf = gdf
+                # Get rid of NaN values in vmax
+                self.fix_nan_vmax()
+                # self.apply_tau(tau)
+                return config, name
+            except Exception:
+                pass
+
+            # Try to read ddb cyc file
+            try:
+                gdf, config, name = read_ddb_cyc(filename)
+                self.gdf = gdf
+                self.apply_tau(tau)
+                # Do not do anything with name
+                return config, name
+            except Exception:
+                pass
 
         raise Exception("Error: could not read file " + filename)
+
+    # def read_jmv30(self, fname):
+    #     gdf, name = read_jmv30(fname)
+    #     self.gdf = gdf
+    #     return name
 
     def apply_tau(self, tau):
         """Apply tau to the track, i.e. start later if timec in track is smaller than tau"""

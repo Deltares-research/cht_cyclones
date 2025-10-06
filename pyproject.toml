@@ -30,7 +30,8 @@ dependencies = [
 	"python-dateutil",
 	"cht_utils",
 	"geojson",
-	"netCDF4"
+	"netCDF4",
+	"feedparser",
 ]
 dynamic = ["version"]
 

@@ -85,15 +85,6 @@ def jmv30_to_dict(fname):
             istop = n - 2
             break
 
-    if istart is None:
-        # Did not find istart
-        # istart should be the first line that looks something like: 2825100200 168N1508E  15
-        for n, line in enumerate(lines):
-            parts = line.split()
-            if parts and parts[0].isdigit() and (parts[1].endswith("E") or parts[1].endswith("W")) and parts[2].isdigit():
-                istart = n
-                break
-
     tc0 = {key: [] for key in tc}
     tc0["name"] = tc["name"]
     tc0["advisorynumber"] = tc["advisorynumber"]

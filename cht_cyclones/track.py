@@ -34,18 +34,19 @@ class TropicalCycloneTrack:
 
         config = None
         name   = None
+        advisory = None
 
         if format == "jmv30":
             # Read JMV 3.0 file (*.tcw)
-            gdf, name = jmv30.to_gdf(filename)
+            gdf, name, advisory = jmv30.to_gdf(filename)
             self.gdf = gdf
-            return config, name
+            return config, name, advisory
 
         elif format == "jtwc_advisory_text":
             # Read JTWC advisory text file
             gdf, name = jtwc_advisory_text.to_gdf(filename)
             self.gdf = gdf
-            return config, name
+            return config, name, advisory
 
         elif format == "cyc":
 
@@ -54,7 +55,7 @@ class TropicalCycloneTrack:
                 gdf = read_cyc(filename)
                 self.gdf = gdf
                 self.apply_tau(tau)
-                return config, name
+                return config, name, advisory
             except Exception:
                 pass
 
@@ -65,7 +66,7 @@ class TropicalCycloneTrack:
                 # Get rid of NaN values in vmax
                 self.fix_nan_vmax()
                 self.apply_tau(tau)
-                return config, name
+                return config, name, advisory
             except Exception:
                 pass
 
@@ -76,7 +77,7 @@ class TropicalCycloneTrack:
                 # Get rid of NaN values in vmax
                 self.fix_nan_vmax()
                 # self.apply_tau(tau)
-                return config, name
+                return config, name, advisory
             except Exception:
                 pass
 
@@ -86,7 +87,7 @@ class TropicalCycloneTrack:
                 self.gdf = gdf
                 self.apply_tau(tau)
                 # Do not do anything with name
-                return config, name
+                return config, name, advisory
             except Exception:
                 pass
 

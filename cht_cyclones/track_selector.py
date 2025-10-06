@@ -111,29 +111,38 @@ def update_tracks():
         gdf = tdb.to_gdf(index=storm_indices)
 
         # Also get list with names of datasets
-        storm_names = tdb.list_names(index=storm_indices)
+        storm_names_unsorted = tdb.list_names(index=storm_indices)
 
         # storm_indices is now a numpy array, convert to list
-        storm_indices = list(storm_indices)
+        storm_indices_unsorted = list(storm_indices)
+
+        # storm_names and storm_indices are not sorted alphabetically
 
         # We want the names in alphabetical order, so sort storm_names AND storm_indices accordingly, using zip
-        storm_names, storm_indices = zip(*sorted(zip(storm_names, storm_indices)))
+        storm_names, storm_indices = zip(*sorted(zip(storm_names_unsorted, storm_indices_unsorted)))
 
         gui.setvar("cyclone_track_selector", "storm_names", storm_names)
         gui.setvar("cyclone_track_selector", "storm_indices", storm_indices)
+        gui.setvar("cyclone_track_selector", "storm_indices_unsorted", storm_indices_unsorted)
 
         # Get the original storm name
         storm_index = gui.getvar("cyclone_track_selector", "storm_index")
 
         # If storm_index is in the list, set it as selected. Need to find the index in the list.
         if storm_index in storm_indices:
+            # Index in the sorted list
             selected_index = storm_indices.index(storm_index)
         else:
+            # Original storm not in the list, select the first one
             selected_index = 0
 
-        gui.setvar("cyclone_track_selector", "storm_index", storm_indices[selected_index])        
+        storm_index = storm_indices[selected_index]    
 
-        map.layer["track_selector"].layer["tracks"].set_data(gdf, selected_index)
+        gui.setvar("cyclone_track_selector", "storm_index", storm_index)        
+
+        map_index = storm_indices_unsorted.index(storm_index)
+
+        map.layer["track_selector"].layer["tracks"].set_data(gdf, map_index)
 
     gui.popup_window["track_selector"].update()
 
@@ -163,9 +172,11 @@ def select_track(feature, widget):
 
 def select_track_from_list(*args):
     storm_index = gui.getvar("cyclone_track_selector", "storm_index")
-    storm_indices = gui.getvar("cyclone_track_selector", "storm_indices")
-    index = storm_indices.index(storm_index)
-    map.layer["track_selector"].layer["tracks"].set_selected_index(index)
+    gui.popup_data["track_selector"]["dataset_index"] = storm_index
+    storm_indices_unsorted = gui.getvar("cyclone_track_selector", "storm_indices_unsorted")
+    # Get the index of the track on the map (need to find it in the unsorted list!)
+    map_index = storm_indices_unsorted.index(storm_index)
+    map.layer["track_selector"].layer["tracks"].set_selected_index(map_index)
 
 def edit_filter(val, widget):
     update_tracks()

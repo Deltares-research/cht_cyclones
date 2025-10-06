@@ -110,9 +110,9 @@ class TropicalCyclone:
         with open(config_file, "w") as file:
             toml.dump(self.config, file)
 
-    def read_track(self, filename, format=None):
+    def read_track(self, filename, format="cyc"):
         # Read track file (automatically determine format)
-        config, name = self.track.read(filename, format=format)
+        config, name, advisory = self.track.read(filename, format=format)
         if config is not None:
             # Old ddb_cyc format with config in it
             self.set_default_config()
@@ -120,6 +120,7 @@ class TropicalCyclone:
             for key in config:
                 self.config[key] = config[key]
         self.name = name        
+        self.advisory = advisory
 
     def read_track_files_and_merge(self, track_file_list, tau=0):
         # Read track files and merge them

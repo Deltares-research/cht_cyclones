@@ -45,7 +45,7 @@ zip-safe = true
 version = { attr = "cht_cyclones.__version__" }
 
 [tool.setuptools.packages.find]
-include = ["cht_cyclones"]
+include = ["cht_cyclones*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.yml"]

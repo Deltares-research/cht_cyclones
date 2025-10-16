@@ -9,8 +9,8 @@ from pyproj import CRS, Geod
 from scipy.interpolate import CubicSpline, interp1d
 from shapely.geometry import LineString, Point
 
-import cht_cyclones.fileio.jmv30 as jmv30
-import cht_cyclones.fileio.jtwc_advisory_text as jtwc_advisory_text
+import cht_cyclones.jtwc.jmv30 as jmv30
+import cht_cyclones.jtwc.jtwc_advisory_text as jtwc_advisory_text
 from cht_cyclones.utils import gdf_to_geojson_js, gdf_to_pli
 from cht_cyclones.wind_profiles import wind_radii_nederhoff, wpr_holland2008
 

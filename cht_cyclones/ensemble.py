@@ -133,7 +133,7 @@ class TropicalCycloneEnsemble:
         self.generate_tracks()  # Generates the tracks and vmax values for the individual ensemble members
 
         if self.compute_wind_fields:
-            self.compute_wind_fields()  # Computes the wind fields by scaling
+            self.make_wind_fields()  # Computes the wind fields by scaling
 
     def generate_tracks(self):
         # Create new track with constant time intervals
@@ -168,7 +168,7 @@ class TropicalCycloneEnsemble:
             fname = os.path.join(self.track_path, self.name + str(i).zfill(5) + ".cyc")
             member.tropical_cyclone.track.write(fname)
 
-    def compute_wind_fields(self, option="scaling"):
+    def make_wind_fields(self, option="scaling"):
         for i in range(self.number_of_realizations):
             print(
                 "Generating ensemble wind field "

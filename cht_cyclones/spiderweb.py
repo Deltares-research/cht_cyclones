@@ -561,8 +561,11 @@ class TropicalCycloneSpiderweb:
             return None, None, None, None
 
         i0 = np.where(times.values <= time)[0][-1]
-        i1 = np.where(times.values > time)[0][0]
-        w1 = (time - times.values[i0]) / (times.values[i1] - times.values[i0])
+        i1 = np.where(times.values >= time)[0][0]
+        if i0 == i1:
+            w1 = 0.0
+        else:
+            w1 = (time - times.values[i0]) / (times.values[i1] - times.values[i0])
 
         # Now create a new SpiderWeb object with just one point (time)
         ds = xr.Dataset()

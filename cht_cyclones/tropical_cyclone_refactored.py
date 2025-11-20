@@ -498,6 +498,7 @@ class TropicalCyclone:
         for itime, time in enumerate(times):
             # Get spiderweb at one time. Return a XR Dataset
             # Only do this for the times that are witin the track
+            time=time.replace(tzinfo=None)
             if time < self.spiderweb.ds["time"].values[0] or time > self.spiderweb.ds["time"].values[-1]:
                 continue
             x0, y0, u, v, p, pr = self.spiderweb.get_data_at_time(time, lon, lat) # lon and lat can also be numpy arrays

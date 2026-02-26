@@ -56,6 +56,7 @@ class CycloneTrackDatabase:
         self.year = None
         self.nstorms = None
         self.ntimes = None
+        self.vmax_max = None
 
         if name == "ibtracs":
             self._read_ibtracs(file_name)
@@ -85,6 +86,7 @@ class CycloneTrackDatabase:
         self.basin = self.ds["basin"].values[:, 0].astype(str).tolist()
         self.name = self.ds["name"].values[:].astype(str).tolist()
         self.year = self.ds["season"].values[:].astype(int)
+        self.vmax_max = self.ds["usa_wind"].max(dim="date_time")
         self.nstorms = np.shape(self.lon)[0]
         self.ntimes = np.shape(self.lon)[1]
 
@@ -324,11 +326,10 @@ class CycloneTrackDatabase:
         else:
             iyear = np.arange(0, self.nstorms)
 
-        # # Filter by vmax
-        # if vmax_min and vmax_max:
-        #     ivmax = np.where((self.year >= year_min) & (self.year <= year_max))[0]
-        # else:
-        #     iyear = np.arange(0, self.nstorms)
+        # Filter by vmax
+        # self.vmax_max may contain NaN values, so we need to handle that
+        # We want to include tracks where vmax_max is NaN        
+        ivmax = np.where((self.vmax_max >= vmax_min) & (self.vmax_max <= vmax_max) | np.isnan(self.vmax_max))[0]
 
         # Filter by name
         if name:
@@ -364,7 +365,7 @@ class CycloneTrackDatabase:
             idist = np.arange(0, self.nstorms)
 
         # Intersect all filters
-        index = reduce(np.intersect1d, (ibasin, iyear, iname, idist, ibbox))
+        index = reduce(np.intersect1d, (ibasin, iyear, iname, idist, ibbox, ivmax))
 
         return index
 

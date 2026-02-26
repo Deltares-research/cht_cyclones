@@ -61,6 +61,7 @@ class CycloneTrackDataset:
         self.year = None
         self.nstorms = None
         self.ntimes = None
+        self.vmax_max = None
 
         self.read_metadata()
 
@@ -129,6 +130,7 @@ class CycloneTrackDataset:
         self.year = self.ds["season"].values[:].astype(int)
         self.nstorms = np.shape(self.lon)[0]
         self.ntimes = np.shape(self.lon)[1]
+        self.vmax_max = self.ds["usa_wind"].max(dim="date_time").values[:]
 
     def get_track(self, index):
         """
@@ -369,12 +371,9 @@ class CycloneTrackDataset:
         else:
             iyear = np.arange(0, self.nstorms)
 
-        # # Filter by vmax
-        # if vmax_min and vmax_max:
-        #     ivmax = np.where((self.year >= year_min) & (self.year <= year_max))[0]
-        # else:
-        #     iyear = np.arange(0, self.nstorms)
-
+        # Filter by vmax
+        ivmax = np.where((self.vmax_max >= vmax_min) & (self.vmax_max <= vmax_max) | np.isnan(self.vmax_max))[0]
+    
         # Filter by name
         if name:
             iname = np.array(
@@ -409,7 +408,7 @@ class CycloneTrackDataset:
             idist = np.arange(0, self.nstorms)
 
         # Intersect all filters
-        index = reduce(np.intersect1d, (ibasin, iyear, iname, idist, ibbox))
+        index = reduce(np.intersect1d, (ibasin, iyear, iname, idist, ibbox, ivmax))
 
         return index
 

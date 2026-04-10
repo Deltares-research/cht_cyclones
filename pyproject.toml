@@ -52,6 +52,9 @@ include = ["cht_cyclones*"]
 [tool.setuptools.package-data]
 "*" = ["*.yml"]
 
+[tool.ruff.lint.per-file-ignores]
+"cht_cyclones/__init__.py" = ["I001", "E402"]
+
 [tool.pytest.ini_options]
 addopts = "--cov cht_cyclones --cov-report xml"
 testpaths = ["tests"]

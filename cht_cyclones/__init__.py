@@ -1,5 +1,4 @@
-"""
-cht_cyclones package initialisation.
+"""cht_cyclones package initialisation.
 
 Exposes the primary public API: TropicalCyclone, TropicalCycloneTrack,
 CycloneTrackDatabase, CycloneTrackDataset, and the track_selector helper.
@@ -7,8 +6,8 @@ CycloneTrackDatabase, CycloneTrackDataset, and the track_selector helper.
 
 __version__ = "1.0.3"
 
-# Import jtwc last — it depends on TropicalCyclone which must be defined first
-import cht_cyclones.jtwc.jtwc as jtwc  # noqa: F401
+# jtwc must be imported AFTER TropicalCyclone to avoid circular imports
+# import cht_cyclones.jtwc.jtwc as jtwc  # noqa: I001
 from cht_cyclones.track import TropicalCycloneTrack
 from cht_cyclones.track_database import CycloneTrackDatabase
 from cht_cyclones.track_dataset import CycloneTrackDataset

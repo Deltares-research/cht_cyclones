@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from cht_cyclones.cyclone_track_dataset import CycloneTrackDataset
+from cht_cyclones.track_dataset import CycloneTrackDataset
 from cht_cyclones.tropical_cyclone import TropicalCyclone
 
 

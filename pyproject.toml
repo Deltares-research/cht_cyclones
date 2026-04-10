@@ -17,21 +17,23 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-	"numpy",
+    "numpy",
     "scipy",
-	"pandas",
-	"geopandas",
-	"matplotlib",
-	"shapely",
-	"xarray",
-	"fiona",
-	"toml",
-	"boto3",
-	"python-dateutil",
-	"cht_utils",
-	"geojson",
-	"netCDF4",
-	"feedparser",
+    "pandas",
+    "geopandas",
+    "matplotlib",
+    "shapely",
+    "xarray",
+    "pyproj",
+    "fiona",
+    "toml",
+    "boto3",
+    "requests",
+    "beautifulsoup4",
+    "cht_utils",
+    "geojson",
+    "netCDF4",
+    "feedparser",
 ]
 dynamic = ["version"]
 

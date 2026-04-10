@@ -13,7 +13,7 @@ def test_read_TRK_forecasted(tmp_dir):
 
     # Read a track
     file_path = Path(__file__).parent / "TRK_COAMPS_CTCX_3_2017092006_15L"
-    tc.read_track(file_path, "trk")
+    tc.read_track(file_path, "cyc")
 
     # Define settings
     # Uses typical Wind Enhance Scheme (WES) formulations

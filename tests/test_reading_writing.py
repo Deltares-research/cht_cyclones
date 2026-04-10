@@ -8,7 +8,7 @@ from cht_cyclones.tropical_cyclone import TropicalCyclone
 def test_reading_writing(tmp_dir):
     # Create track file
     dataset_file = Path(__file__).parent / "IBTrACS.ALL.v04r00.nc"
-    db = CycloneTrackDataset("ibtracs", file_name=dataset_file)
+    db = CycloneTrackDataset("ibtracs", dataset_file)
     ind = db.list_names().index("IDAI")
     tc = db.get_track(index=ind)
     tc.write_track(tmp_dir / "best_track_idai.cyc", "ddb_cyc")

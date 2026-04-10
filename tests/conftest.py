@@ -20,7 +20,7 @@ def tmp_dir():
 @pytest.fixture()
 def track_idai() -> TropicalCyclone:
     dataset_file = Path(__file__).parent / "IBTrACS.ALL.v04r00.nc"
-    db = CycloneTrackDataset("ibtracs", file_name=dataset_file)
+    db = CycloneTrackDataset("ibtracs", dataset_file)
     ind = db.list_names().index("IDAI")
     tc = db.get_track(index=ind)
 

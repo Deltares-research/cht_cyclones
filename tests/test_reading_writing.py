@@ -1,14 +1,14 @@
 # Load modules
 from pathlib import Path
 
-from cht_cyclones.cyclone_track_database import CycloneTrackDatabase
+from cht_cyclones.track_dataset import CycloneTrackDataset
 from cht_cyclones.tropical_cyclone import TropicalCyclone
 
 
 def test_reading_writing(tmp_dir):
     # Create track file
-    database_file = Path(__file__).parent / "IBTrACS.ALL.v04r00.nc"
-    db = CycloneTrackDatabase("ibtracs", file_name=database_file)
+    dataset_file = Path(__file__).parent / "IBTrACS.ALL.v04r00.nc"
+    db = CycloneTrackDataset("ibtracs", file_name=dataset_file)
     ind = db.list_names().index("IDAI")
     tc = db.get_track(index=ind)
     tc.write_track(tmp_dir / "best_track_idai.cyc", "ddb_cyc")

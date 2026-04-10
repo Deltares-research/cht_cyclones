@@ -52,6 +52,13 @@ include = ["cht_cyclones*"]
 [tool.setuptools.package-data]
 "*" = ["*.yml"]
 
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501", "PD901"]
+
 [tool.ruff.lint.per-file-ignores]
 "cht_cyclones/__init__.py" = ["I001", "E402"]
 

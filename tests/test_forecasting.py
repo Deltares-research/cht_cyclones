@@ -3,6 +3,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from cht_cyclones.track_dataset import CycloneTrackDataset
 from cht_cyclones.tropical_cyclone import TropicalCyclone, TropicalCycloneEnsemble
 
@@ -10,7 +12,10 @@ from cht_cyclones.tropical_cyclone import TropicalCyclone, TropicalCycloneEnsemb
 def test_forecasting(tmp_dir):
     # Create track file
     dataset_file = Path(__file__).parent / "IBTrACS.ALL.v04r00.nc"
-    db = CycloneTrackDataset("ibtracs", dataset_file)
+    if not (dataset_file.parent / "metadata.tml").exists():
+        pytest.skip("IBTrACS test dataset not set up (missing metadata.tml)")
+
+    db = CycloneTrackDataset("ibtracs", dataset_file.parent)
     ind = db.list_names().index("IDAI")
     tc = db.get_track(index=ind)
     tc.write_track(tmp_dir / "best_track_idai.cyc", "ddb_cyc")

@@ -25,7 +25,6 @@ def test_read_TRK_forecasted(tmp_dir):
     )
 
     # Write as cyc
-    tc.convert_units_metric_imperial()
     tc.write_track(tmp_dir / "forecasted_track_Maria.cyc", "ddb_cyc")
 
     # create (regular) ASCII spiderweb

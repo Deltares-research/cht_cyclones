@@ -20,7 +20,10 @@ def tmp_dir():
 @pytest.fixture()
 def track_idai() -> TropicalCyclone:
     dataset_file = Path(__file__).parent / "IBTrACS.ALL.v04r00.nc"
-    db = CycloneTrackDataset("ibtracs", dataset_file)
+    # Tests need a directory with metadata.tml; skip if not available
+    if not (dataset_file.parent / "metadata.tml").exists():
+        pytest.skip("IBTrACS test dataset not set up (missing metadata.tml)")
+    db = CycloneTrackDataset("ibtracs", dataset_file.parent)
     ind = db.list_names().index("IDAI")
     tc = db.get_track(index=ind)
 

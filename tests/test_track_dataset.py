@@ -5,6 +5,6 @@ from cht_cyclones.track_dataset import CycloneTrackDataset
 
 def test_load_track_dataset():
     dataset_file = Path(__file__).parent / "IBTrACS.ALL.v04r00.nc"
-    tc = CycloneTrackDataset("ibtracs", dataset_file)
+    tc = CycloneTrackDataset("ibtracs", dataset_file.parent)
 
     assert tc.nstorms == 13330

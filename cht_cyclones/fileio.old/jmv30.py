@@ -1,28 +1,50 @@
-import numpy as np
 from datetime import datetime, timedelta
-from geopandas import GeoDataFrame
+
+import numpy as np
 import pandas as pd
-from shapely.geometry import Point
+from geopandas import GeoDataFrame
 from pyproj import CRS
+from shapely.geometry import Point
+
 
 def datenum_to_datetime(dn):
     """Convert MATLAB datenum to Python datetime"""
-    return datetime.fromordinal(int(dn)) + timedelta(days=dn%1) - timedelta(days=366)
+    return datetime.fromordinal(int(dn)) + timedelta(days=dn % 1) - timedelta(days=366)
+
 
 def datetime_to_datenum(dt):
     """Convert Python datetime to MATLAB datenum"""
-    return dt.toordinal() + 366 + (dt - datetime(dt.year, dt.month, dt.day)).total_seconds() / 86400
+    return (
+        dt.toordinal()
+        + 366
+        + (dt - datetime(dt.year, dt.month, dt.day)).total_seconds() / 86400
+    )
+
 
 def jmv30_to_dict(fname):
     tc = {
         "name": "",
         "advisorynumber": None,
         "time": [],
-        "x": [], "y": [], "vmax": [],
-        "r35ne": [], "r35se": [], "r35sw": [], "r35nw": [],
-        "r50ne": [], "r50se": [], "r50sw": [], "r50nw": [],
-        "r65ne": [], "r65se": [], "r65sw": [], "r65nw": [],
-        "r100ne": [], "r100se": [], "r100sw": [], "r100nw": [],
+        "x": [],
+        "y": [],
+        "vmax": [],
+        "r35ne": [],
+        "r35se": [],
+        "r35sw": [],
+        "r35nw": [],
+        "r50ne": [],
+        "r50se": [],
+        "r50sw": [],
+        "r50nw": [],
+        "r65ne": [],
+        "r65se": [],
+        "r65sw": [],
+        "r65nw": [],
+        "r100ne": [],
+        "r100se": [],
+        "r100sw": [],
+        "r100nw": [],
     }
 
     # --- Read file ---
@@ -47,25 +69,45 @@ def jmv30_to_dict(fname):
             break
         tc["time"].append(t0 + timedelta(hours=float(parts[0][1:])))
         lat = float(parts[1][:-1]) * 0.1
-        if parts[1].endswith("S"): lat = -lat
+        if parts[1].endswith("S"):
+            lat = -lat
         lon = float(parts[2][:-1]) * 0.1
-        if parts[2].endswith("W"): lon = -lon
+        if parts[2].endswith("W"):
+            lon = -lon
         tc["y"].append(lat)
         tc["x"].append(lon)
         tc["vmax"].append(float(parts[3]))
 
         # Initialize radii
-        radii = {"r35": [np.nan]*4, "r50": [np.nan]*4, "r65": [np.nan]*4, "r100": [np.nan]*4}
+        radii = {
+            "r35": [np.nan] * 4,
+            "r50": [np.nan] * 4,
+            "r65": [np.nan] * 4,
+            "r100": [np.nan] * 4,
+        }
 
         # Parse radii
         for n in range(4, len(parts)):
             tag = parts[n].lower()
             if tag in ["r034", "r050", "r064", "r100"]:
-                key = "r35" if tag == "r034" else "r50" if tag == "r050" else "r65" if tag == "r064" else "r100"
-                radii[key] = [float(parts[n+1]), float(parts[n+4]), float(parts[n+7]), float(parts[n+10])]
+                key = (
+                    "r35"
+                    if tag == "r034"
+                    else "r50"
+                    if tag == "r050"
+                    else "r65"
+                    if tag == "r064"
+                    else "r100"
+                )
+                radii[key] = [
+                    float(parts[n + 1]),
+                    float(parts[n + 4]),
+                    float(parts[n + 7]),
+                    float(parts[n + 10]),
+                ]
 
         # Append radii
-        for quad, idx in zip(["ne","se","sw","nw"], range(4)):
+        for quad, idx in zip(["ne", "se", "sw", "nw"], range(4)):
             tc[f"r35{quad}"].append(radii["r35"][idx])
             tc[f"r50{quad}"].append(radii["r50"][idx])
             tc[f"r65{quad}"].append(radii["r65"][idx])
@@ -90,7 +132,12 @@ def jmv30_to_dict(fname):
         # istart should be the first line that looks something like: 2825100200 168N1508E  15
         for n, line in enumerate(lines):
             parts = line.split()
-            if parts and parts[0].isdigit() and (parts[1].endswith("E") or parts[1].endswith("W")) and parts[2].isdigit():
+            if (
+                parts
+                and parts[0].isdigit()
+                and (parts[1].endswith("E") or parts[1].endswith("W"))
+                and parts[2].isdigit()
+            ):
                 istart = n
                 break
 
@@ -108,10 +155,10 @@ def jmv30_to_dict(fname):
         # Latitude
         if "N" in f2:
             idx = f2.index("N") + 1
-            lat = 0.1 * float(f2[:idx-1])
+            lat = 0.1 * float(f2[: idx - 1])
         else:
             idx = f2.index("S") + 1
-            lat = -0.1 * float(f2[:idx-1])
+            lat = -0.1 * float(f2[: idx - 1])
         tc0["y"].append(lat)
 
         # Longitude
@@ -123,8 +170,8 @@ def jmv30_to_dict(fname):
 
         tc0["vmax"].append(float(f3))
 
-        for quad in ["ne","se","sw","nw"]:
-            for r in ["r35","r50","r65","r100"]:
+        for quad in ["ne", "se", "sw", "nw"]:
+            for r in ["r35", "r50", "r65", "r100"]:
                 tc0[f"{r}{quad}"].append(np.nan)
 
     # --- Merge hindcast & forecast ---
@@ -144,8 +191,8 @@ def jmv30_to_dict(fname):
 
     return tc
 
-def to_gdf(fname):
 
+def to_gdf(fname):
     tc_dict = jmv30_to_dict(fname)
 
     gdf = GeoDataFrame()  # Initialize empty GeoDataFrame

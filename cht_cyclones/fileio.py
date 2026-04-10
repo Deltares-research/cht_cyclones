@@ -1,3 +1,12 @@
+"""
+Alternative file I/O implementation for tropical-cyclone track files.
+
+Provides :class:`TropicalCycloneTrack`, a class-based reader/writer that
+supports the ``ddb_cyc`` and ``trk`` (COAMPS-TC) formats using explicit header
+and data parsing routines.  This module co-exists with the functions in
+:mod:`cht_cyclones.track`.
+"""
+
 from datetime import datetime
 from pathlib import Path
 
@@ -8,6 +17,20 @@ from shapely.geometry import Point
 
 
 class TropicalCycloneTrack:
+    """
+    Reader/writer for tropical-cyclone track files (``ddb_cyc`` and ``trk`` formats).
+
+    The track data are stored in ``self.track``, a
+    :class:`geopandas.GeoDataFrame` with one row per time step.
+
+    Parameters
+    ----------
+    epsg : int, optional
+        EPSG code for the track CRS (default 4326).
+    debug : int, optional
+        Verbosity level; ``1`` prints progress messages.
+    """
+
     wind_profile: str
     wind_pressure_relation: str
     rmw_relation: str
@@ -56,11 +79,26 @@ class TropicalCycloneTrack:
         "R100_NW",
     ]
 
-    def __init__(self, epsg: int = 4326, debug: int = 0):
+    def __init__(self, epsg: int = 4326, debug: int = 0) -> None:
         self.EPSG = epsg
         self.debug = debug
 
     def read(self, filename: Path, fmt: str) -> None:
+        """
+        Read a track file and populate ``self.track``.
+
+        Parameters
+        ----------
+        filename : Path
+            Path to the track file.
+        fmt : str
+            Format identifier: ``"ddb_cyc"`` or ``"trk"``.
+
+        Raises
+        ------
+        ValueError
+            If ``fmt`` is not one of the supported formats.
+        """
         if fmt == "ddb_cyc":
             self._read_ddb_cyc(filename)
         elif fmt == "trk":
@@ -69,6 +107,21 @@ class TropicalCycloneTrack:
             raise ValueError("This file format is not supported as read track!")
 
     def write(self, filename: Path, fmt: str) -> None:
+        """
+        Write the track to a file.
+
+        Parameters
+        ----------
+        filename : Path
+            Output file path.
+        fmt : str
+            Format identifier.  Only ``"ddb_cyc"`` is currently supported.
+
+        Raises
+        ------
+        ValueError
+            If ``fmt`` is not a supported output format.
+        """
         if fmt == "ddb_cyc":
             self._write_ddb_cyc(filename)
         else:
@@ -408,36 +461,36 @@ class TropicalCycloneTrack:
             print("Successfully read track - ddb_cyc")
 
     def _write_ddb_cyc(self, filename: Path) -> None:
-        # Open file
+        """
+        Write the track to a Delft Dashboard ``ddb_cyc`` format file.
+
+        Parameters
+        ----------
+        filename : Path
+            Output file path.
+        """
         with open(filename, "wt") as f:
             # Print header
             f.writelines(
-                "# Tropical Cyclone Toolbox - Coastal Hazards Toolkit - "
-                + self.creation_time.strftime(dateformat_module)
-                + "\n"
+                f"# Tropical Cyclone Toolbox - Coastal Hazards Toolkit - "
+                f"{self.creation_time.strftime(dateformat_module)}\n"
             )
 
             # Print rest
-            f.writelines('Name                   "' + self.name + '"\n')
-            f.writelines("WindProfile            " + self.wind_profile + "\n")
-            f.writelines("WindPressureRelation   " + self.wind_pressure_relation + "\n")
-            f.writelines("RMaxRelation           " + self.rmw_relation + "\n")
-            f.writelines(
-                "Backgroundpressure     " + str(self.background_pressure) + "\n"
-            )
-            f.writelines("PhiSpiral              " + str(self.phi_spiral) + "\n")
-            f.writelines(
-                "WindConversionFactor   " + str(self.wind_conversion_factor) + "\n"
-            )
-            f.writelines("SpiderwebRadius        " + str(self.spiderweb_radius) + "\n")
-            f.writelines("NrRadialBins           " + str(self.nr_radial_bins) + "\n")
-            f.writelines(
-                "NrDirectionalBins      " + str(self.nr_directional_bins) + "\n"
-            )
+            f.writelines(f'Name                   "{self.name}"\n')
+            f.writelines(f"WindProfile            {self.wind_profile}\n")
+            f.writelines(f"WindPressureRelation   {self.wind_pressure_relation}\n")
+            f.writelines(f"RMaxRelation           {self.rmw_relation}\n")
+            f.writelines(f"Backgroundpressure     {self.background_pressure}\n")
+            f.writelines(f"PhiSpiral              {self.phi_spiral}\n")
+            f.writelines(f"WindConversionFactor   {self.wind_conversion_factor}\n")
+            f.writelines(f"SpiderwebRadius        {self.spiderweb_radius}\n")
+            f.writelines(f"NrRadialBins           {self.nr_radial_bins}\n")
+            f.writelines(f"NrDirectionalBins      {self.nr_directional_bins}\n")
             epsg = self.track.crs.name
-            f.writelines("EPSG                   " + epsg + "\n")
-            f.writelines("UnitIntensity          " + str(self.unit_intensity) + "\n")
-            f.writelines("UnitWindRadii          " + str(self.unit_radii) + "\n")
+            f.writelines(f"EPSG                   {epsg}\n")
+            f.writelines(f"UnitIntensity          {self.unit_intensity}\n")
+            f.writelines(f"UnitWindRadii          {self.unit_radii}\n")
 
             # Print header for the track
             f.writelines("#  \n")

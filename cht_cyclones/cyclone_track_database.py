@@ -1,3 +1,15 @@
+"""
+In-memory IBTrACS tropical-cyclone track database.
+
+Provides :class:`CycloneTrackDatabase`, which loads an IBTrACS NetCDF file and
+offers filtering, GeoDataFrame conversion, and single-track retrieval.
+
+.. deprecated::
+    This module has been superseded by
+    :mod:`cht_cyclones.track_database` / :mod:`cht_cyclones.track_dataset`.
+    It is retained for backward compatibility.
+"""
+
 import datetime
 from functools import reduce
 
@@ -201,7 +213,19 @@ class CycloneTrackDatabase:
 
         return tc
 
-    def list_names(self, index=None):
+    def list_names(self, index=None) -> list:
+        """
+        Return storm names for the given indices, or all names when ``index`` is ``None``.
+
+        Parameters
+        ----------
+        index : array-like or None, optional
+            Indices into ``self.name``; all names are returned when ``None``.
+
+        Returns
+        -------
+        list of str
+        """
         if index is not None:
             return [self.name[i] for i in index]
         else:
@@ -240,7 +264,7 @@ class CycloneTrackDatabase:
                     shapely.geometry.LineString(np.transpose(np.stack((lon, lat))))
                 )
                 iok.append(ind)
-                description.append(self.name[ind] + " (" + str(self.year[ind]) + ")")
+                description.append(f"{self.name[ind]} ({self.year[ind]})")
 
         # Create geopandas dataframe
         gdf = gpd.GeoDataFrame(crs=4326, geometry=geom)
@@ -328,8 +352,11 @@ class CycloneTrackDatabase:
 
         # Filter by vmax
         # self.vmax_max may contain NaN values, so we need to handle that
-        # We want to include tracks where vmax_max is NaN        
-        ivmax = np.where((self.vmax_max >= vmax_min) & (self.vmax_max <= vmax_max) | np.isnan(self.vmax_max))[0]
+        # We want to include tracks where vmax_max is NaN
+        ivmax = np.where(
+            (self.vmax_max >= vmax_min) & (self.vmax_max <= vmax_max)
+            | np.isnan(self.vmax_max)
+        )[0]
 
         # Filter by name
         if name:

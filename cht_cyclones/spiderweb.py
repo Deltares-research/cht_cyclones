@@ -1,3 +1,12 @@
+"""
+Spiderweb wind-field grid for tropical cyclones.
+
+Provides :class:`TropicalCycloneSpiderweb`, which stores the time-varying
+wind, pressure, and precipitation fields on a polar (range × azimuth) grid
+centred on the storm eye, and handles reading/writing in both NetCDF and
+Delft3D ASCII spiderweb formats.
+"""
+
 import datetime
 
 import numpy as np
@@ -16,12 +25,28 @@ dateformat_module = "%Y%m%d %H%M%S"
 
 
 class TropicalCycloneSpiderweb:
-    def __init__(self):
+    """
+    Time-varying spiderweb wind-field on a polar grid.
+
+    The underlying data are stored in an :class:`xarray.Dataset` (``self.ds``)
+    with dimensions ``time``, ``range``, and ``azimuth``.  Variables include
+    ``wind_x``, ``wind_y``, ``pressure``, ``precipitation``, ``longitude_eye``,
+    and ``latitude_eye``.
+    """
+
+    def __init__(self) -> None:
         self.ds = xr.Dataset()
         self.ds.attrs["description"] = "Tropical cyclone spiderweb by cht_cyclones"
 
-    def read(self, filename):
-        # Read spw file
+    def read(self, filename: str) -> None:
+        """
+        Read a spiderweb file (NetCDF or ASCII) into ``self.ds``.
+
+        Parameters
+        ----------
+        filename : str
+            Path to a ``.nc`` (NetCDF) or ``.spw`` (ASCII) file.
+        """
         # Get file extension
         fmt = filename.split(".")[-1]
         if fmt == "nc":
@@ -29,7 +54,27 @@ class TropicalCycloneSpiderweb:
         elif fmt == "spw":
             self.read_spiderweb_ascii(filename)
 
-    def initialize_grid(self, track, nrad, ndir, spiderweb_radius):
+    def initialize_grid(
+        self,
+        track: "TropicalCycloneTrack",
+        nrad: int,
+        ndir: int,
+        spiderweb_radius: float,
+    ) -> None:
+        """
+        Initialise the xarray Dataset grid for a given track and resolution.
+
+        Parameters
+        ----------
+        track : TropicalCycloneTrack
+            Track object providing time steps and eye positions.
+        nrad : int
+            Number of radial bins.
+        ndir : int
+            Number of directional (azimuth) bins.
+        spiderweb_radius : float
+            Outer radius of the grid (m).
+        """
         # Make Xarray dataset
 
         nt = len(track.gdf)
@@ -144,13 +189,31 @@ class TropicalCycloneSpiderweb:
 
     def write(
         self,
-        filename,
-        format="netcdf",
-        background_pressure=1013.0,
-        tref=None,
-        include_rainfall=False,
-        merge_frac=0.5,
-    ):
+        filename: str,
+        format: str = "netcdf",
+        background_pressure: float = 1013.0,
+        tref: str | None = None,
+        include_rainfall: bool = False,
+        merge_frac: float = 0.5,
+    ) -> None:
+        """
+        Write the spiderweb to a file.
+
+        Parameters
+        ----------
+        filename : str
+            Output file path.
+        format : str, optional
+            ``"netcdf"`` (default) or ``"ascii"``.
+        background_pressure : float, optional
+            Ambient pressure (hPa) used when writing the ASCII format.
+        tref : str, optional
+            Reference time for the ASCII format (``"%Y%m%d %H%M%S"``).
+        include_rainfall : bool, optional
+            Include precipitation field in the output.
+        merge_frac : float, optional
+            Spiderweb merge fraction written to the ASCII header.
+        """
         if format == "netcdf":
             if not include_rainfall:
                 # Drop precipitation if not needed
@@ -166,113 +229,108 @@ class TropicalCycloneSpiderweb:
                 include_rainfall=include_rainfall,
             )
 
-    def read_spiderweb_ascii(self, filename):
-        # Read in ASCII
+    def read_spiderweb_ascii(self, filename: str) -> None:
+        """
+        Read a Delft3D ASCII spiderweb file into ``self.ds``.
 
-        # Open file
-        fid = open(filename, "r")
+        Parameters
+        ----------
+        filename : str
+            Path to the ``.spw`` ASCII file.
+        """
+        with open(filename, "r") as fid:
+            # First loop through all lines and count number of times that a line starts with "TIME"
+            n_times = 0
+            n_rows = 0
+            n_cols = 0
+            n_quantity = 3
+            while True:
+                line = fid.readline()
+                if not line:
+                    break
+                parts = line.split()
+                if not parts:
+                    continue
+                if parts[0] == "n_rows":
+                    n_rows = int(parts[2])
+                if parts[0] == "n_cols":
+                    n_cols = int(parts[2])
+                if parts[0] == "n_quantity":
+                    n_quantity = int(parts[2])
+                if parts[0] == "TIME":
+                    n_times += 1
+            # Rewind file
+            fid.seek(0)
 
-        # First loop through all lines and count number of times that a line starts with "TIME"
-        n_times = 0
-        while True:
-            line = fid.readline()
-            if not line:
-                # End of file
-                break
-            if line.split()[0] == "n_rows":
-                n_rows = int(line.split()[2])
-            if line.split()[0] == "n_cols":
-                n_cols = int(line.split()[2])
-            if line.split()[0] == "n_quantity":
-                n_quantity = int(line.split()[2])
-            if line.split()[0] == "TIME":
-                n_times += 1
-        # Rewind file
-        fid.seek(0)
+            # Initialize arrays
+            t = np.zeros(n_times, dtype="datetime64[s]")
+            lon = np.zeros(n_times)
+            lat = np.zeros(n_times)
 
-        # Initialize arrays
-        t = np.zeros(n_times, dtype="datetime64[s]")
-        lon = np.zeros(n_times)
-        lat = np.zeros(n_times)
+            # Read header information
+            vsn = fid.readline().split()[2]  # noqa: F841
+            filetype = fid.readline().split()[2]  # noqa: F841
+            nodata_value = float(fid.readline().split()[2])  # noqa: F841
+            n_cols = int(fid.readline().split()[2])
+            n_rows = int(fid.readline().split()[2])
+            grid_unit = fid.readline().split()[2]  # noqa: F841
+            spiderweb_radius = float(fid.readline().split()[2])  # noqa: F841
+            spw_rad_unit = fid.readline().split()[2]  # noqa: F841
+            spw_merge_frac = float(fid.readline().split()[2])  # noqa: F841
+            n_quantity = int(fid.readline().split()[2])
+            quantity1 = fid.readline().split()[2]  # noqa: F841
+            quantity2 = fid.readline().split()[2]  # noqa: F841
+            quantity3 = fid.readline().split()[2]  # noqa: F841
+            unit1 = fid.readline().split()[2]  # noqa: F841
+            unit2 = fid.readline().split()[2]  # noqa: F841
+            unit3 = fid.readline().split()[2]  # noqa: F841
 
-        # Now find the number of rows and columns
-        n_rows = 0
-        n_cols = 0
-        for i in range(10):
-            line = fid.readline()
-            if line.split()[0] == "n_rows":
-                n_rows = int(line.split()[2])
-            if line.split()[0] == "n_cols":
-                n_cols = int(line.split()[2])
-        # Rewind file
-        fid.seek(0)
-
-        # Read header information
-        vsn = fid.readline().split()[2]
-        filetype = fid.readline().split()[2]
-        nodata_value = float(fid.readline().split()[2])
-        n_cols = int(fid.readline().split()[2])
-        n_rows = int(fid.readline().split()[2])
-        grid_unit = fid.readline().split()[2]
-        spiderweb_radius = float(fid.readline().split()[2])
-        spw_rad_unit = fid.readline().split()[2]
-        spw_merge_frac = float(fid.readline().split()[2])
-        n_quantity = int(fid.readline().split()[2])
-        quantity1 = fid.readline().split()[2]
-        quantity2 = fid.readline().split()[2]
-        quantity3 = fid.readline().split()[2]
-        unit1 = fid.readline().split()[2]
-        unit2 = fid.readline().split()[2]
-        unit3 = fid.readline().split()[2]
-
-        if n_quantity == 4:
-            quantity4 = fid.readline().split()[2]
-            unit4 = fid.readline().split()[2]
-
-        # Initialize arrays
-        wind_speed = np.zeros((n_times, n_rows, n_cols))
-        wind_from_direction = np.zeros((n_times, n_rows, n_cols))
-        pressure_drop = np.zeros((n_times, n_rows, n_cols))
-        if n_quantity == 4:
-            precipitation = np.zeros((n_times, n_rows, n_cols))
-
-        for it in range(n_times):
-            line = fid.readline()
-            parts = line.split("=")
-            # Get the second part
-            line = parts[1]
-            t0 = float(line.split()[0])
-            tunits = line.split()[1]
-            trefstrs = line.split()[3:-1]
-            trefstr = " ".join(trefstrs)
-            tref = np.datetime64(trefstr)
-            if tunits[0:2] == "mi":
-                t = tref + np.timedelta64(int(t0), "m")  # noqa: F841
-            elif tunits[0:2] == "ho":
-                t = tref + np.timedelta64(int(t0), "h")  # noqa: F841
-            elif tunits[0:2] == "se":
-                t = tref + np.timedelta64(int(t0), "s")  # noqa: F841
-            x_spw_eye = float(fid.readline().split()[2])  # noqa: F841
-            y_spw_eye = float(fid.readline().split()[2])  # noqa: F841
-            p_drop_spw_eye = float(fid.readline().split()[2])  # noqa: F841
-
-            # Read the data
-            for i in range(n_rows):
-                wind_speed[it, i, :] = np.array(fid.readline().split(), dtype=float)
-            for i in range(n_rows):
-                wind_from_direction[it, i, :] = np.array(
-                    fid.readline().split(), dtype=float
-                )
-            for i in range(n_rows):
-                pressure_drop[it, i, :] = np.array(fid.readline().split(), dtype=float)
             if n_quantity == 4:
+                quantity4 = fid.readline().split()[2]  # noqa: F841
+                unit4 = fid.readline().split()[2]  # noqa: F841
+
+            # Initialize arrays
+            wind_speed = np.zeros((n_times, n_rows, n_cols))
+            wind_from_direction = np.zeros((n_times, n_rows, n_cols))
+            pressure_drop = np.zeros((n_times, n_rows, n_cols))
+            if n_quantity == 4:
+                precipitation = np.zeros((n_times, n_rows, n_cols))
+
+            for it in range(n_times):
+                line = fid.readline()
+                parts = line.split("=")
+                line = parts[1]
+                t0 = float(line.split()[0])
+                tunits = line.split()[1]
+                trefstrs = line.split()[3:-1]
+                trefstr = " ".join(trefstrs)
+                tref = np.datetime64(trefstr)
+                if tunits[0:2] == "mi":
+                    t = tref + np.timedelta64(int(t0), "m")  # noqa: F841
+                elif tunits[0:2] == "ho":
+                    t = tref + np.timedelta64(int(t0), "h")  # noqa: F841
+                elif tunits[0:2] == "se":
+                    t = tref + np.timedelta64(int(t0), "s")  # noqa: F841
+                x_spw_eye = float(fid.readline().split()[2])  # noqa: F841
+                y_spw_eye = float(fid.readline().split()[2])  # noqa: F841
+                p_drop_spw_eye = float(fid.readline().split()[2])  # noqa: F841
+
+                # Read the data
                 for i in range(n_rows):
-                    precipitation[it, i, :] = np.array(
+                    wind_speed[it, i, :] = np.array(fid.readline().split(), dtype=float)
+                for i in range(n_rows):
+                    wind_from_direction[it, i, :] = np.array(
                         fid.readline().split(), dtype=float
                     )
-
-        # Close file
-        fid.close()
+                for i in range(n_rows):
+                    pressure_drop[it, i, :] = np.array(
+                        fid.readline().split(), dtype=float
+                    )
+                if n_quantity == 4:
+                    for i in range(n_rows):
+                        precipitation[it, i, :] = np.array(
+                            fid.readline().split(), dtype=float
+                        )
 
         # # Create Xarray dataset
         # self.ds = xr.Dataset(
@@ -291,12 +349,30 @@ class TropicalCycloneSpiderweb:
 
     def write_spiderweb_ascii(
         self,
-        filename,
-        background_pressure=1013.0,
-        tref=None,
-        merge_frac=0.5,
-        include_rainfall=False,
-    ):
+        filename: str,
+        background_pressure: float = 1013.0,
+        tref: str | None = None,
+        merge_frac: float = 0.5,
+        include_rainfall: bool = False,
+    ) -> None:
+        """
+        Write the spiderweb data to a Delft3D ASCII ``.spw`` file.
+
+        Parameters
+        ----------
+        filename : str
+            Output file path.
+        background_pressure : float, optional
+            Ambient (background) pressure used to derive the pressure-drop
+            field (hPa).
+        tref : str, optional
+            Reference time string in ``"%Y%m%d %H%M%S"`` format.  Defaults
+            to January 1st of the year of the first time step.
+        merge_frac : float, optional
+            Spiderweb merge fraction written to the header.
+        include_rainfall : bool, optional
+            When ``True``, write the precipitation field as a fourth quantity.
+        """
         # Write in ASCII
 
         # Make sure tref is in np.datetime64 format
@@ -319,122 +395,122 @@ class TropicalCycloneSpiderweb:
 
         spiderweb_radius = self.ds["range"].values[-1]
 
-        # Create output
-        fid = open(filename, "w")
         format1 = "{:<14} {:1} {:<} {:>} \n"
         format2 = "{:<14} {:1} {:<} \n"
 
-        # Write header information
-        fid.write(
-            format1.format(
-                "FileVersion",
-                "=",
-                vsn,
-                "                            # Version of meteo input file, to check if the newest file format is used",
-            )
-        )
-        fid.write(
-            format2.format(
-                "filetype",
-                "=",
-                "meteo_on_spiderweb_grid          # from TRACK file: trackfile.trk",
-            )
-        )
-        fid.write(format2.format("NODATA_value", "=", "-999.000"))
-        fid.write(
-            format1.format(
-                "n_cols",
-                "=",
-                str(ncols),
-                "                   # Number of columns used for wind datafield",
-            )
-        )
-        fid.write(
-            format1.format(
-                "n_rows",
-                "=",
-                str(nrows),
-                "                           # Number of rows used for wind datafield",
-            )
-        )
-        fid.write(format2.format("grid_unit", "=", gridunit))
-        fid.write(format2.format("spw_radius", "=", str(spiderweb_radius)))
-        fid.write(format2.format("spw_rad_unit", "=", "m"))
-        if merge_frac:
-            fid.write(format2.format("spw_merge_frac", "=", str(merge_frac)))
-        # Check is
-        if include_rainfall:
-            fid.write(format2.format("n_quantity", "=", "4"))
-        else:
-            fid.write(format2.format("n_quantity", "=", "3"))
-        fid.write(format2.format("quantity1", "=", "wind_speed"))
-        fid.write(format2.format("quantity2", "=", "wind_from_direction"))
-        fid.write(format2.format("quantity3", "=", "p_drop"))
-        if include_rainfall:
-            fid.write(format2.format("quantity4", "=", "precipitation"))
-        fid.write(format2.format("unit1", "=", "m s-1"))
-        fid.write(format2.format("unit2", "=", "degree"))
-        fid.write(format2.format("unit3", "=", "Pa"))
-        if include_rainfall:
-            fid.write(format2.format("unit4", "=", "mm/h"))
-
-        # Go over the time steps
-        for it in range(nt):
-            # Convert to minutes
-            dt = self.ds["time"].values[it] - tref
-            dt = dt.astype("timedelta64[m]").astype(int)
-
-            # Get main variables
-            wu = self.ds["wind_x"].values[it, :, :]
-            wv = self.ds["wind_y"].values[it, :, :]
-            wind_speed = np.sqrt(wu**2 + wv**2)
-            wind_from_direction = 270.0 - np.arctan2(wv, wu) * 180 / np.pi
-            pressure_drop = (
-                background_pressure * 100 - self.ds["pressure"].values[it, :, :]
-            )
-            if include_rainfall:
-                rainfall_rate = self.ds["precipitation"].values[it, :, :]
-
-            # Replace NaN with -999
-            wind_speed = np.nan_to_num(wind_speed, nan=-999)
-            wind_from_direction = np.nan_to_num(wind_from_direction, nan=-999)
-            pressure_drop = np.nan_to_num(pressure_drop, nan=-999)
-            if include_rainfall:
-                rainfall_rate = np.nan_to_num(rainfall_rate, nan=-999)
-
-            # Get coordinates
-            lon = self.ds["longitude_eye"].values[it]
-            lat = self.ds["latitude_eye"].values[it]
-
-            # Print
-            timestamp = (tref - np.datetime64("1970-01-01T00:00:00")) / np.timedelta64(
-                1, "s"
-            )
-            tref_datetime = datetime.datetime.utcfromtimestamp(timestamp)
-            reference_time_str = tref_datetime.strftime("%Y-%m-%d %H:%M:%S")
+        with open(filename, "w") as fid:
+            # Write header information
             fid.write(
-                "{:<14} {:1} {:^10.2f} {:} {:} {:<6}".format(
-                    "TIME", "=", int(dt), "minutes since", reference_time_str, "+00:00"
+                format1.format(
+                    "FileVersion",
+                    "=",
+                    vsn,
+                    "                            # Version of meteo input file, to check if the newest file format is used",
                 )
             )
-            fid.write("\n")
-            fid.write(format2.format("x_spw_eye", "=", (round(lon, 2))))
-            fid.write(format2.format("y_spw_eye", "=", (round(lat, 2))))
             fid.write(
                 format2.format(
-                    "p_drop_spw_eye", "=", (round(np.amax(pressure_drop), 2))
+                    "filetype",
+                    "=",
+                    "meteo_on_spiderweb_grid          # from TRACK file: trackfile.trk",
                 )
             )
-
-            # Save main variables
-            np.savetxt(fid, wind_speed, fmt="%9.2f")
-            np.savetxt(fid, wind_from_direction, fmt="%9.2f")
-            np.savetxt(fid, pressure_drop, fmt="%9.2f")
+            fid.write(format2.format("NODATA_value", "=", "-999.000"))
+            fid.write(
+                format1.format(
+                    "n_cols",
+                    "=",
+                    str(ncols),
+                    "                   # Number of columns used for wind datafield",
+                )
+            )
+            fid.write(
+                format1.format(
+                    "n_rows",
+                    "=",
+                    str(nrows),
+                    "                           # Number of rows used for wind datafield",
+                )
+            )
+            fid.write(format2.format("grid_unit", "=", gridunit))
+            fid.write(format2.format("spw_radius", "=", str(spiderweb_radius)))
+            fid.write(format2.format("spw_rad_unit", "=", "m"))
+            if merge_frac:
+                fid.write(format2.format("spw_merge_frac", "=", str(merge_frac)))
             if include_rainfall:
-                np.savetxt(fid, rainfall_rate, fmt="%9.2f")
+                fid.write(format2.format("n_quantity", "=", "4"))
+            else:
+                fid.write(format2.format("n_quantity", "=", "3"))
+            fid.write(format2.format("quantity1", "=", "wind_speed"))
+            fid.write(format2.format("quantity2", "=", "wind_from_direction"))
+            fid.write(format2.format("quantity3", "=", "p_drop"))
+            if include_rainfall:
+                fid.write(format2.format("quantity4", "=", "precipitation"))
+            fid.write(format2.format("unit1", "=", "m s-1"))
+            fid.write(format2.format("unit2", "=", "degree"))
+            fid.write(format2.format("unit3", "=", "Pa"))
+            if include_rainfall:
+                fid.write(format2.format("unit4", "=", "mm/h"))
 
-        # We are done here
-        fid.close()
+            # Go over the time steps
+            for it in range(nt):
+                # Convert to minutes
+                dt = self.ds["time"].values[it] - tref
+                dt = dt.astype("timedelta64[m]").astype(int)
+
+                # Get main variables
+                wu = self.ds["wind_x"].values[it, :, :]
+                wv = self.ds["wind_y"].values[it, :, :]
+                wind_speed = np.sqrt(wu**2 + wv**2)
+                wind_from_direction = 270.0 - np.arctan2(wv, wu) * 180 / np.pi
+                pressure_drop = (
+                    background_pressure * 100 - self.ds["pressure"].values[it, :, :]
+                )
+                if include_rainfall:
+                    rainfall_rate = self.ds["precipitation"].values[it, :, :]
+
+                # Replace NaN with -999
+                wind_speed = np.nan_to_num(wind_speed, nan=-999)
+                wind_from_direction = np.nan_to_num(wind_from_direction, nan=-999)
+                pressure_drop = np.nan_to_num(pressure_drop, nan=-999)
+                if include_rainfall:
+                    rainfall_rate = np.nan_to_num(rainfall_rate, nan=-999)
+
+                # Get coordinates
+                lon = self.ds["longitude_eye"].values[it]
+                lat = self.ds["latitude_eye"].values[it]
+
+                # Print
+                timestamp = (
+                    tref - np.datetime64("1970-01-01T00:00:00")
+                ) / np.timedelta64(1, "s")
+                tref_datetime = datetime.datetime.utcfromtimestamp(timestamp)
+                reference_time_str = tref_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                fid.write(
+                    "{:<14} {:1} {:^10.2f} {:} {:} {:<6}".format(
+                        "TIME",
+                        "=",
+                        int(dt),
+                        "minutes since",
+                        reference_time_str,
+                        "+00:00",
+                    )
+                )
+                fid.write("\n")
+                fid.write(format2.format("x_spw_eye", "=", (round(lon, 2))))
+                fid.write(format2.format("y_spw_eye", "=", (round(lat, 2))))
+                fid.write(
+                    format2.format(
+                        "p_drop_spw_eye", "=", (round(np.amax(pressure_drop), 2))
+                    )
+                )
+
+                # Save main variables
+                np.savetxt(fid, wind_speed, fmt="%9.2f")
+                np.savetxt(fid, wind_from_direction, fmt="%9.2f")
+                np.savetxt(fid, pressure_drop, fmt="%9.2f")
+                if include_rainfall:
+                    np.savetxt(fid, rainfall_rate, fmt="%9.2f")
 
     def get_track(self, config):
         """Returns a TropicalCycloneTrack object"""
@@ -574,15 +650,14 @@ class TropicalCycloneSpiderweb:
                 if i0 == i1:
                     ds[var] = self.ds[var].isel(time=i0)
                 else:
-                    ds[var] = (
-                        (1.0 - w1) * self.ds[var].isel(time=i0)
-                        + w1 * self.ds[var].isel(time=i1)
-                    )
+                    ds[var] = (1.0 - w1) * self.ds[var].isel(time=i0) + w1 * self.ds[
+                        var
+                    ].isel(time=i1)
             else:
                 ds.ds[var] = self.ds[var]
 
         x0 = ds["longitude_eye"].values
-        y0 = ds["latitude_eye"].values 
+        y0 = ds["latitude_eye"].values
         radius = ds["range"].values
         dr = radius[1] - radius[0]
         phi = ds["azimuth"].values
@@ -591,7 +666,7 @@ class TropicalCycloneSpiderweb:
         dx = (x - x0) * 111320 * np.cos(y0 * np.pi / 180)
         dy = (y - y0) * 111320
 
-        distance = np.sqrt(dx ** 2 + dy ** 2)
+        distance = np.sqrt(dx**2 + dy**2)
         azimuth = np.arctan2(dy, dx) * 180 / np.pi
 
         # Make sure azimuth is between 0 and 360
@@ -606,7 +681,7 @@ class TropicalCycloneSpiderweb:
         ir[np.where(ir >= len(radius))] = -1
         # phi goes from 90 to -260 in step of dphi, so find the index of the closest
         # azimuth is typically a 2D array
-        iphi = ( - dazimuth / dphi ).astype(int)
+        iphi = (-dazimuth / dphi).astype(int)
 
         # Now create a new dataset with just the data at that radius and azimuth
         u = ds["wind_x"].values[ir, iphi]
@@ -618,9 +693,6 @@ class TropicalCycloneSpiderweb:
             pr = None
 
         return x0, y0, u, v, p, pr
-
-
-
 
         # idx = np.where(self.ds["time"].values == np.datetime64(time))
         # if len(idx[0]) == 0:

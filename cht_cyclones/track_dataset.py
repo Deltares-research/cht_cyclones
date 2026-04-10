@@ -1,3 +1,11 @@
+"""
+Single tropical-cyclone track dataset (e.g., IBTrACS).
+
+Provides :class:`CycloneTrackDataset`, which reads an IBTrACS NetCDF file,
+exposes per-storm metadata, and can filter and return individual tracks as
+:class:`~cht_cyclones.tropical_cyclone_refactored.TropicalCyclone` objects.
+"""
+
 import datetime
 import os
 from functools import reduce
@@ -65,14 +73,20 @@ class CycloneTrackDataset:
 
         self.read_metadata()
 
-    def read(self):
+    def read(self) -> None:
+        """
+        Load the track data file into ``self.ds`` (no-op if already loaded).
+        """
         if self.ds is not None:
             # Already read in
             return
         filename = os.path.join(self.path, self.files[0])
         self._read_ibtracs(filename)
 
-    def read_metadata(self):
+    def read_metadata(self) -> None:
+        """
+        Read the dataset metadata TOML file and set attributes on ``self``.
+        """
         # Read metadata file
         tml_file = os.path.join(self.path, "metadata.tml")
         tml = toml.load(tml_file)
@@ -85,7 +99,12 @@ class CycloneTrackDataset:
         if self.long_name == "":
             self.long_name = self.name
 
-    def download(self):
+    def download(self) -> None:
+        """
+        Download any missing data files from S3.
+
+        A no-op when ``s3_bucket`` is ``None`` or all files already exist locally.
+        """
         if self.s3_bucket is None:
             return
         # Check if download is needed
@@ -244,7 +263,7 @@ class CycloneTrackDataset:
 
         return tc
 
-    def list_names(self, index=None):
+    def list_names(self, index=None) -> list:
         if index is not None:
             return [self.storm_name[i] for i in index]
         else:
@@ -283,9 +302,7 @@ class CycloneTrackDataset:
                     shapely.geometry.LineString(np.transpose(np.stack((lon, lat))))
                 )
                 iok.append(ind)
-                description.append(
-                    self.storm_name[ind] + " (" + str(self.year[ind]) + ")"
-                )
+                description.append(f"{self.storm_name[ind]} ({self.year[ind]})")
 
         # Create geopandas dataframe
         gdf = gpd.GeoDataFrame(crs=4326, geometry=geom)
@@ -372,8 +389,11 @@ class CycloneTrackDataset:
             iyear = np.arange(0, self.nstorms)
 
         # Filter by vmax
-        ivmax = np.where((self.vmax_max >= vmax_min) & (self.vmax_max <= vmax_max) | np.isnan(self.vmax_max))[0]
-    
+        ivmax = np.where(
+            (self.vmax_max >= vmax_min) & (self.vmax_max <= vmax_max)
+            | np.isnan(self.vmax_max)
+        )[0]
+
         # Filter by name
         if name:
             iname = np.array(

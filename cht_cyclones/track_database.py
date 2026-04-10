@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
 """
-Created on Sun Apr 25 10:58:08 2021
-
-@author: Maarten van Ormondt
+Cyclone track database: top-level container that holds one or more CycloneTrackDataset
+instances and optionally synchronises them against a remote S3 bucket.
 """
 
 import os
@@ -17,16 +15,34 @@ from cht_cyclones.track_dataset import CycloneTrackDataset
 
 class CycloneTrackDatabase:
     """
-    The main Cyclone Track Database class
-    Contains one or more track datasets.
+    Top-level container for one or more tropical-cyclone track datasets.
 
-    :param pth: Path name where bathymetry tiles will be cached.
-    :type pth: string
+    Reads dataset metadata from a local TOML catalogue file and optionally
+    synchronises new datasets from a remote S3 bucket.
+
+    Parameters
+    ----------
+    path : str
+        Local directory where dataset folders and the catalogue file reside.
+    s3_bucket : str, optional
+        Name of the S3 bucket used for remote synchronisation.
+    s3_key : str, optional
+        Key prefix (folder path) inside the S3 bucket.
+    s3_region : str, optional
+        AWS region of the S3 bucket.
+    check_online : bool, optional
+        When ``True``, query the remote S3 bucket for new datasets on
+        initialisation.
     """
 
     def __init__(
-        self, path, s3_bucket=None, s3_key=None, s3_region=None, check_online=False
-    ):
+        self,
+        path: str,
+        s3_bucket: str | None = None,
+        s3_key: str | None = None,
+        s3_region: str | None = None,
+        check_online: bool = False,
+    ) -> None:
         self.path = path
         self.dataset = []
         self.s3_client = None
@@ -37,9 +53,12 @@ class CycloneTrackDatabase:
         if check_online:
             self.check_online_database()
 
-    def read(self):
+    def read(self) -> None:
         """
-        Reads meta-data of all datasets in the database.
+        Read metadata for all datasets listed in the local catalogue file.
+
+        The catalogue file is expected at ``<path>/cyclone_track_datasets.tml``.
+        Missing or unreadable dataset metadata files are skipped with a warning.
         """
         # Check if the path exists. If not, create it.
         if not os.path.exists(self.path):
@@ -48,7 +67,7 @@ class CycloneTrackDatabase:
         # Read in database
         tml_file = os.path.join(self.path, "cyclone_track_datasets.tml")
         if not os.path.exists(tml_file):
-            print("Warning! Cyclone tracks database file not found: " + tml_file)
+            print(f"Warning! Cyclone tracks database file not found: {tml_file}")
             return
 
         datasets = toml.load(tml_file)
@@ -69,9 +88,7 @@ class CycloneTrackDatabase:
                 dataset_format = metadata["format"]
             else:
                 print(
-                    "Could not find metadata file for dataset "
-                    + name
-                    + " ! Skipping dataset."
+                    f"Could not find metadata file for dataset {name} ! Skipping dataset."
                 )
                 continue
 
@@ -82,7 +99,14 @@ class CycloneTrackDatabase:
 
             self.dataset.append(dataset)
 
-    def check_online_database(self):
+    def check_online_database(self) -> None:
+        """
+        Synchronise the local database with the remote S3 catalogue.
+
+        Downloads the remote catalogue file, compares it with the local list of
+        datasets, and fetches metadata for any new datasets found on S3.  The
+        local catalogue TOML is updated if new datasets were added.
+        """
         if self.s3_client is None:
             self.s3_client = boto3.client(
                 "s3", config=Config(signature_version=UNSIGNED)
@@ -158,7 +182,20 @@ class CycloneTrackDatabase:
         # else:
         #     print("No new tide models were added to the local database.")
 
-    def get_dataset(self, name):
+    def get_dataset(self, name: str) -> "CycloneTrackDataset | None":
+        """
+        Retrieve a dataset by short name, downloading it first if necessary.
+
+        Parameters
+        ----------
+        name : str
+            Short name of the dataset as recorded in the catalogue.
+
+        Returns
+        -------
+        CycloneTrackDataset or None
+            The requested dataset, or ``None`` if the name was not found.
+        """
         for dataset in self.dataset:
             if dataset.name == name:
                 # Make sure the dataset is locally available
@@ -167,7 +204,17 @@ class CycloneTrackDatabase:
                 return dataset
         return None
 
-    def dataset_names(self):
+    def dataset_names(self) -> tuple[list[str], list[str]]:
+        """
+        Return the short and long names of all registered datasets.
+
+        Returns
+        -------
+        short_name_list : list of str
+            Short (identifier) names.
+        long_name_list : list of str
+            Human-readable long names.
+        """
         short_name_list = []
         long_name_list = []
         for dataset in self.dataset:

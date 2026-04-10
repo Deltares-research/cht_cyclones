@@ -1,17 +1,37 @@
-import os
-import math
-from datetime import datetime, timedelta
-import re
-from geopandas import GeoDataFrame
-from shapely.geometry import Point
-import pandas as pd
-import numpy as np
-from pyproj import CRS
+"""
+Parser for plain-text JTWC tropical-cyclone advisory bulletins.
 
-def to_gdf(filename):
+Extracts position, maximum sustained winds, minimum sea-level pressure, and
+quadrant wind radii from the structured text format used in JTWC public
+advisories, and returns a GeoDataFrame compatible with the rest of cht_cyclones.
+"""
+
+import math
+from datetime import datetime
+
+import numpy as np
+import pandas as pd
+from geopandas import GeoDataFrame
+from pyproj import CRS
+from shapely.geometry import Point
+
+
+def to_gdf(filename: str) -> tuple:
     """
-    Parse a JTWC advisory file and extract cyclone parameters.
-    Returns a dictionary with extracted values.
+    Parse a JTWC advisory text file and return a GeoDataFrame of the track.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the plain-text advisory bulletin.
+
+    Returns
+    -------
+    gdf : geopandas.GeoDataFrame
+        One row per recorded time step; columns include ``datetime``,
+        ``geometry``, ``vmax``, ``pc``, ``rmw``, and quadrant wind radii.
+    tc_name : str
+        Storm name extracted from the advisory.
     """
     result = {
         "tc_name": "",
@@ -47,23 +67,47 @@ def to_gdf(filename):
         # Simplified version of the wind-pressure relationship
         # Table values from Perl code, truncated for brevity
         WPR = [
-            (15, 1010.5), (20, 1006.8), (25, 1003.1), (30, 999.5),
-            (35, 995.8), (40, 992.1), (45, 988.4), (50, 984.7),
-            (55, 981.0), (60, 977.3), (65, 973.6), (70, 969.9),
-            (75, 966.2), (80, 962.5), (85, 958.8), (90, 955.0),
-            (95, 951.3), (100, 947.6), (105, 943.8), (110, 940.1),
-            (115, 936.3), (120, 932.6), (125, 928.8), (130, 925.1),
-            (135, 921.3), (140, 917.5), (145, 913.8), (150, 910.0),
-            (155, 906.2), (160, 902.4), (165, 898.6), (170, 894.8),
+            (15, 1010.5),
+            (20, 1006.8),
+            (25, 1003.1),
+            (30, 999.5),
+            (35, 995.8),
+            (40, 992.1),
+            (45, 988.4),
+            (50, 984.7),
+            (55, 981.0),
+            (60, 977.3),
+            (65, 973.6),
+            (70, 969.9),
+            (75, 966.2),
+            (80, 962.5),
+            (85, 958.8),
+            (90, 955.0),
+            (95, 951.3),
+            (100, 947.6),
+            (105, 943.8),
+            (110, 940.1),
+            (115, 936.3),
+            (120, 932.6),
+            (125, 928.8),
+            (130, 925.1),
+            (135, 921.3),
+            (140, 917.5),
+            (145, 913.8),
+            (150, 910.0),
+            (155, 906.2),
+            (160, 902.4),
+            (165, 898.6),
+            (170, 894.8),
         ]
         for i in range(len(WPR)):
             if WPR[i][0] == msw:
                 return WPR[i][1]
-            elif i > 0 and WPR[i][0] > msw and WPR[i-1][0] < msw:
+            elif i > 0 and WPR[i][0] > msw and WPR[i - 1][0] < msw:
                 # Linear interpolation
-                x0, y0 = WPR[i-1]
+                x0, y0 = WPR[i - 1]
                 x1, y1 = WPR[i]
-                return y0 + (y1-y0)*(msw-x0)/(x1-x0)
+                return y0 + (y1 - y0) * (msw - x0) / (x1 - x0)
         return 1013.25  # Default
 
     def storm_dir_speed(lon1, lat1, lon2, lat2, tau1, tau2):
@@ -75,16 +119,21 @@ def to_gdf(filename):
         phi1, phi2 = math.radians(lat1), math.radians(lat2)
         dphi = math.radians(lat2 - lat1)
         dlambda = math.radians(lon2 - lon1)
-        a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        a = (
+            math.sin(dphi / 2) ** 2
+            + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+        )
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         km = R * c
         # Bearing
         y = math.sin(dlambda) * math.cos(phi2)
-        x = math.cos(phi1)*math.sin(phi2) - math.sin(phi1)*math.cos(phi2)*math.cos(dlambda)
+        x = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(
+            phi2
+        ) * math.cos(dlambda)
         bearing = (math.degrees(math.atan2(y, x)) + 360) % 360
         # Speed in knots
         nm2km = 1.852
-        speed = (km/nm2km) / (tau2 - tau1) if (tau2 - tau1) != 0 else 0.0
+        speed = (km / nm2km) / (tau2 - tau1) if (tau2 - tau1) != 0 else 0.0
         return bearing, speed
 
     with open(filename, "r") as f:
@@ -98,9 +147,16 @@ def to_gdf(filename):
         fields = line.split()
         # Storm name
         if line.startswith("1.") and "WARNING NR" in line:
-            result["tc_name"] = " ".join([w for w in fields if not any(c.isdigit() for c in w)])
+            result["tc_name"] = " ".join(
+                [w for w in fields if not any(c.isdigit() for c in w)]
+            )
         # Date/time/position
-        if fields and fields[0].endswith("Z") and len(fields) >= 3 and "POSITION" not in line:
+        if (
+            fields
+            and fields[0].endswith("Z")
+            and len(fields) >= 3
+            and "POSITION" not in line
+        ):
             date_str = fields[0]
             lat_str = fields[-2]
             lon_str = fields[-1]
@@ -175,14 +231,16 @@ def to_gdf(filename):
     # Calculate direction/speed for forecasts
     for i in range(1, len(result["lat"])):
         dir, spd = storm_dir_speed(
-            result["lon"][i-1], result["lat"][i-1],
-            result["lon"][i], result["lat"][i],
-            tau[i-1] if i-1 < len(tau) else 0,
-            tau[i] if i < len(tau) else 6
+            result["lon"][i - 1],
+            result["lat"][i - 1],
+            result["lon"][i],
+            result["lat"][i],
+            tau[i - 1] if i - 1 < len(tau) else 0,
+            tau[i] if i < len(tau) else 6,
         )
         result["tc_dir"].append(dir)
         result["tc_speed"].append(spd)
- 
+
     gdf = GeoDataFrame()  # Initialize empty GeoDataFrame
 
     for itime, timestr in enumerate(result["time"]):

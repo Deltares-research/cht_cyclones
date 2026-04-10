@@ -1,3 +1,12 @@
+"""
+Tropical-cyclone track representation and file I/O.
+
+Provides :class:`TropicalCycloneTrack`, which stores the track as a
+GeoDataFrame with one row per time step, and a set of module-level reader/writer
+functions that support the ``.cyc``, ``ddb_cyc``, ``.trk`` (COAMPS-TC), and
+PAGASA CSV formats.
+"""
+
 import os
 from datetime import datetime, timedelta
 
@@ -33,7 +42,7 @@ class TropicalCycloneTrack:
         """Read a tropical cyclone track from a file."""
 
         config = None
-        name   = None
+        name = None
         advisory = None
 
         if format == "jmv30":
@@ -49,7 +58,6 @@ class TropicalCycloneTrack:
             return config, name, advisory
 
         elif format == "cyc":
-
             # Try to read cyc file new format
             try:
                 gdf = read_cyc(filename)
@@ -91,7 +99,7 @@ class TropicalCycloneTrack:
             except Exception:
                 pass
 
-        raise Exception("Error: could not read file " + filename)
+        raise Exception(f"Error: could not read file {filename}")
 
     # def read_jmv30(self, fname):
     #     gdf, name = read_jmv30(fname)
@@ -124,8 +132,7 @@ class TropicalCycloneTrack:
             for it in range(len(self.gdf)):
                 if np.isnan(self.gdf.vmax[it]):
                     print(
-                        "Warning! Replacing vmax = NaN in track with interpolated value at it = "
-                        + str(it)
+                        f"Warning! Replacing vmax = NaN in track with interpolated value at it = {it}"
                     )
                     self.gdf.loc[it, "vmax"] = s.values[it]
 
@@ -145,7 +152,7 @@ class TropicalCycloneTrack:
         elif format == "cyc":
             write_cyc(filename, gdf, include_header=include_header)
         else:
-            raise Exception("Error: track format " + format + " not supported")
+            raise Exception(f"Error: track format {format} not supported")
 
     # 3A. convert_units_imperial_metric
     def convert_units_imperial_to_metric(self, config):
@@ -683,7 +690,7 @@ class TropicalCycloneTrack:
         #         83.0: "TY",
         #         102.0: "STY",
         #         220.0: "SUP",
-        #     }    
+        #     }
 
         features = []
         points = []
@@ -699,7 +706,6 @@ class TropicalCycloneTrack:
 
         # Then the points
         for ip in range(np.size(self.gdf.geometry.x)):
-
             point = Point((self.gdf.geometry.x[ip], self.gdf.geometry.y[ip]))
             tmptime = datetime.strptime(self.gdf.datetime[ip], "%Y%m%d %H%M%S")
             vmax = self.gdf.vmax[ip]
@@ -708,9 +714,8 @@ class TropicalCycloneTrack:
             if np.isnan(vmax):
                 vmax = 1.0
 
-            # Determine category    
+            # Determine category
             if classification == "saffirsimpson":
-
                 vmax_unit = "knots"
 
                 categories = {
@@ -728,7 +733,6 @@ class TropicalCycloneTrack:
                         break
 
             elif classification == "pagasa":
-
                 vmax_unit = "km/h"
 
                 # Note: PAGASA uses km/h
@@ -741,9 +745,9 @@ class TropicalCycloneTrack:
                     185.0: "STY",
                 }
                 categories_slp = {
-                   1000.0: "TD",
+                    1000.0: "TD",
                     999.0: "TS",
-                    988.0: "STS",                    
+                    988.0: "STS",
                     973.0: "TY",
                     927.0: "STY",
                 }
@@ -819,7 +823,7 @@ def read_cyc(filename):
         lines = f.readlines()
 
     tleap_add = 0
-    for iline, line in enumerate(lines):        
+    for iline, line in enumerate(lines):
         if line[0] == "#":
             continue
         # Get values
@@ -835,7 +839,8 @@ def read_cyc(filename):
                 tleap_add = 1
                 date_string = date_string[0:4] + "0228" + date_string[8:]
         tc_time = datetime.strptime(date_string, date_format) + timedelta(
-            hours=tleap_add * 24)
+            hours=tleap_add * 24
+        )
         tc_time_string = tc_time.strftime(date_format)
         y = float(line[2])
         x = float(line[3])
@@ -1345,32 +1350,23 @@ def write_ddb_cyc(filename, gdf, config, name, unit_intensity, unit_radii):
     with open(filename, "wt") as f:
         # Print header
         f.writelines(
-            "# Tropical Cyclone Toolbox - Coastal Hazards Toolkit - "
-            + datetime.now().strftime(dateformat_module)
-            + "\n"
+            f"# Tropical Cyclone Toolbox - Coastal Hazards Toolkit - "
+            f"{datetime.now().strftime(dateformat_module)}\n"
         )
         # Print rest
-        f.writelines('Name                   "' + name + '"\n')
-        f.writelines("WindProfile            " + config["wind_profile"] + "\n")
-        f.writelines(
-            "WindPressureRelation   " + config["wind_pressure_relation"] + "\n"
-        )
-        f.writelines("RMaxRelation           " + config["rmw_relation"] + "\n")
-        f.writelines(
-            "Backgroundpressure     " + str(config["background_pressure"]) + "\n"
-        )
-        f.writelines("PhiSpiral              " + str(config["phi_spiral"]) + "\n")
-        f.writelines(
-            "WindConversionFactor   " + str(config["wind_conversion_factor"]) + "\n"
-        )
-        f.writelines("SpiderwebRadius        " + str(config["spiderweb_radius"]) + "\n")
-        f.writelines("NrRadialBins           " + str(config["nr_radial_bins"]) + "\n")
-        f.writelines(
-            "NrDirectionalBins      " + str(config["nr_directional_bins"]) + "\n"
-        )
+        f.writelines(f'Name                   "{name}"\n')
+        f.writelines(f"WindProfile            {config['wind_profile']}\n")
+        f.writelines(f"WindPressureRelation   {config['wind_pressure_relation']}\n")
+        f.writelines(f"RMaxRelation           {config['rmw_relation']}\n")
+        f.writelines(f"Backgroundpressure     {config['background_pressure']}\n")
+        f.writelines(f"PhiSpiral              {config['phi_spiral']}\n")
+        f.writelines(f"WindConversionFactor   {config['wind_conversion_factor']}\n")
+        f.writelines(f"SpiderwebRadius        {config['spiderweb_radius']}\n")
+        f.writelines(f"NrRadialBins           {config['nr_radial_bins']}\n")
+        f.writelines(f"NrDirectionalBins      {config['nr_directional_bins']}\n")
         f.writelines("EPSG                   WGS84\n")
-        f.writelines("UnitIntensity          " + str(unit_intensity) + "\n")
-        f.writelines("UnitWindRadii          " + str(unit_radii) + "\n")
+        f.writelines(f"UnitIntensity          {unit_intensity}\n")
+        f.writelines(f"UnitWindRadii          {unit_radii}\n")
 
         # Print header for the track
         f.writelines("#  \n")

@@ -1,19 +1,65 @@
+"""
+Parametric wind-profile and wind-pressure-relation functions used by cht_cyclones.
+
+References
+----------
+Holland, G. J., Belanger, J. I., & Fritz, A. (2010).
+    A revised model for radial profiles of hurricane winds.
+    Monthly Weather Review, 138(12), 4393-4401.
+
+Holland, G. J. (2008).
+    A revised hurricane pressure–wind model.
+    Monthly Weather Review, 136(9), 3432-3445.
+
+Nederhoff, K., et al. (2019).
+    Estimates of tropical cyclone geometry parameters based on best-track data.
+    Natural Hazards and Earth System Sciences, 19(11), 2359-2370.
+"""
+
 import numpy as np
 
 
-######
-# Definitions that I want to be available in general
-######
-# Definitions to compute Holland 2010 (1D)
-def holland2010(r, vmax, pc, pn, rmax, dpdt, lat, vt, xn):
+def holland2010(
+    r: "np.ndarray",
+    vmax: float,
+    pc: float,
+    pn: float,
+    rmax: float,
+    dpdt: float,
+    lat: float,
+    vt: float,
+    xn: float,
+) -> list:
     """
-    Returning the one-dimensional Holland et al. (2010) parametric wind profile
+    One-dimensional Holland et al. (2010) parametric wind profile.
 
     Parameters
     ----------
-    r : radius in km
-    etc etc.
+    r : numpy.ndarray
+        Radii at which to evaluate the profile (km).
+    vmax : float
+        Maximum sustained wind speed (m/s).
+    pc : float
+        Central pressure (hPa).
+    pn : float
+        Background (ambient) pressure (hPa).
+    rmax : float
+        Radius of maximum winds (m).
+    dpdt : float
+        Rate of pressure change (hPa/h).
+    lat : float
+        Latitude of the storm centre (degrees).
+    vt : float
+        Storm translation speed (m/s).
+    xn : float
+        Holland profile exponent (dimensionless, typically 0.5).
 
+    Returns
+    -------
+    vr : numpy.ndarray
+        Radial wind speed profile (m/s).
+    pr : numpy.ndarray
+        Radial pressure profile (hPa).
     """
     # calculate Holland b parameter based pn Holland (2008) - assume Dvorak method
     vms = vmax
@@ -47,23 +93,35 @@ def holland2010(r, vmax, pc, pn, rmax, dpdt, lat, vt, xn):
     return [vr, pr]
 
 
-# Definitiaton for wind radii
-def wind_radii_nederhoff(vmax, lat, region, probability):
+def wind_radii_nederhoff(
+    vmax: float,
+    lat: float,
+    region: int,
+    probability: int,
+) -> list:
     """
-    Returning the estimates of radius of maximum winds (RMW)
-    and estimates of gale force winds (R35)
+    Estimate the radius of maximum winds (RMW) and gale-force wind radius (R35).
+
+    Based on the statistical relationships from Nederhoff et al. (2019).
 
     Parameters
     ----------
-    vmax    : wind speed intensity in m/s - 1-minute average
-    lat     : latitude in degrees
-    region  : see paper for details (use 7 for non region specific)
-    probability: integer - 0 only mode; 1 = 1000 values
+    vmax : float
+        Maximum sustained wind speed (m/s, 1-minute average).
+    lat : float
+        Latitude of the storm centre (degrees).
+    region : int
+        Region index (0–7); use 7 for a globally applicable estimate.
+    probability : int
+        ``0`` returns only the mode; ``1`` also draws 1 000 random samples.
 
     Returns
     -------
-    rmax    : dictionary with mode and possible more
-    r35     : ''
+    rmax : dict
+        Estimated RMW statistics: keys ``"mode"``, and optionally ``"mean"``,
+        ``"median"``, ``"lowest"``, ``"highest"``, ``"numbers"``.
+    dr35 : dict
+        Estimated *delta* R35 statistics (same keys as ``rmax``).
     """
     # radius of maximum winds (rmw or rmax)
     # 1. coefficients for A
@@ -193,10 +251,49 @@ def wind_radii_nederhoff(vmax, lat, region, probability):
     return [rmax, dr35]
 
 
-# Definition to compute wind-pressure relation to determine the vmax or the pressure drop
 def wpr_holland2008(
-    pc=None, pn=None, phi=None, vt=None, dpcdt=None, rhoa=None, SST=None, vmax=None
-):
+    pc: float | None = None,
+    pn: float | None = None,
+    phi: float | None = None,
+    vt: float | None = None,
+    dpcdt: float | None = None,
+    rhoa: float | None = None,
+    SST: float | None = None,
+    vmax: float | None = None,
+) -> float:
+    """
+    Holland (2008) wind-pressure relation.
+
+    Computes either the minimum central pressure (when ``vmax`` is given) or the
+    maximum sustained wind speed (when ``vmax`` is ``None``).
+
+    Parameters
+    ----------
+    pc : float, optional
+        Central pressure (hPa).  Required when estimating ``vmax``.
+    pn : float, optional
+        Background pressure (hPa).
+    phi : float, optional
+        Latitude (degrees).
+    vt : float, optional
+        Storm translation speed (m/s).
+    dpcdt : float, optional
+        Rate of pressure change (hPa/h).
+    rhoa : float, optional
+        Air density (kg/m³).  Estimated from SST when not provided.
+    SST : float, optional
+        Sea surface temperature (°C).  Used to derive ``rhoa`` when ``rhoa``
+        is not supplied.
+    vmax : float, optional
+        Maximum sustained wind speed (m/s).  When provided the function returns
+        the central pressure; otherwise it returns ``vmax``.
+
+    Returns
+    -------
+    float
+        Central pressure (hPa) if ``vmax`` is given, otherwise maximum
+        sustained wind speed (m/s).
+    """
     # used when pc needs to be determined
     if not rhoa:
         if vmax:

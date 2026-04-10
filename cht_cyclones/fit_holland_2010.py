@@ -1,19 +1,67 @@
+"""
+Optimisation routines that fit Holland (2010) wind-field parameters to observed
+wind-radii quadrant data.
+"""
+
 import numpy as np
 from scipy.interpolate import interp1d
 
 from cht_cyclones.wind_profiles import holland2010
 
 
-# Definition to fit Holland 2010 wind field
 def fit_wind_field_holland2010(
-    vmax, rmax, pc, vtreal, phit, pn, phi_spiral, lat, dpdt, obs
-):
-    # Discussion
-    # shouldnt we have a switch to only calibrate vt and phi_a for observed radii
-    # what about limits on these variables
-    # OK with xn calibration
+    vmax: float,
+    rmax: float,
+    pc: float,
+    vtreal: float,
+    phit: float,
+    pn: float,
+    phi_spiral: float,
+    lat: float,
+    dpdt: float,
+    obs: dict,
+) -> list:
+    """
+    Fit Holland (2010) wind-field parameters to observed quadrant wind radii.
 
-    # function to fit wind field based pn Holland 2010
+    Iteratively adjusts the profile exponent *xn*, the asymmetry magnitude *vt*,
+    and the asymmetry direction *phia* to minimise the RMS error between the
+    modelled wind field and the observed quadrant radii.
+
+    Parameters
+    ----------
+    vmax : float
+        Maximum sustained wind speed (m/s).
+    rmax : float
+        Radius of maximum winds (km).
+    pc : float
+        Central pressure (hPa).
+    vtreal : float
+        Actual storm translation speed (m/s).
+    phit : float
+        Track heading angle (degrees, Cartesian convention).
+    pn : float
+        Background pressure (hPa).
+    phi_spiral : float
+        Inflow angle (degrees).
+    lat : float
+        Storm latitude (degrees).
+    dpdt : float
+        Rate of pressure change (hPa/h).
+    obs : dict
+        Observed data with keys ``"quadrants_radii"`` (ndarray, shape (4, 4))
+        and ``"quadrants_speed"`` (ndarray, length 4).
+
+    Returns
+    -------
+    xn : float
+        Fitted Holland profile exponent.
+    vt : float
+        Fitted asymmetry-correction wind speed (m/s).
+    phia : float
+        Fitted asymmetry direction (degrees).
+    """
+    # function to fit wind field based on Holland 2010
     size_factor = 1
     phi = np.arange(90, -270 - 10, -10)  # radial angles (cartesian, degrees)
     rmax = rmax * 1000  # convert from km to m
@@ -270,11 +318,35 @@ def fit_wind_field_holland2010(
     return [xn, vt, phia]
 
 
-# Definition to compute mean error
-def compute_mean_error(r, w, obs, wrad):
-    # Discussion
-    # why are we only accounting for R35?
+def compute_mean_error(
+    r: "np.ndarray",
+    w: "np.ndarray",
+    obs: dict,
+    wrad: "np.ndarray",
+) -> list:
+    """
+    Compute the mean and RMS error between modelled and observed wind radii.
 
+    Parameters
+    ----------
+    r : numpy.ndarray
+        Radii array (m).
+    w : numpy.ndarray
+        Modelled wind-speed array with shape ``(n_directions, n_radii)``.
+    obs : dict
+        Observed data; must contain ``"quadrants_radii"`` (ndarray shape (4, 4)).
+    wrad : numpy.ndarray
+        Target wind speeds for each radius threshold (m/s).
+
+    Returns
+    -------
+    mean_error : float
+        Mean signed error (m/s).
+    rms_error : float
+        Root-mean-square error (m/s).
+    err : numpy.ndarray
+        Per-quadrant/radius error array (NaN where no observation exists).
+    """
     # variables
     nrad = np.size(obs["quadrants_radii"], 0)
     nrad = 3  # not we are only fitting R35, nothing else
@@ -313,8 +385,33 @@ def compute_mean_error(r, w, obs, wrad):
     return [mean_error, rms_error, err]
 
 
-# Definition to compute forward speed and heading
-def compute_forward_speed_heading(t, x, y):
+def compute_forward_speed_heading(
+    t: "np.ndarray",
+    x: "np.ndarray",
+    y: "np.ndarray",
+) -> list:
+    """
+    Compute forward speed and heading from a sequence of track positions.
+
+    Uses forward differences at the first point, backward differences at the
+    last point, and central differences elsewhere.
+
+    Parameters
+    ----------
+    t : numpy.ndarray
+        Time array (any unit; currently unused in the speed calculation).
+    x : numpy.ndarray
+        Longitude array (degrees).
+    y : numpy.ndarray
+        Latitude array (degrees).
+
+    Returns
+    -------
+    forward_speed : numpy.ndarray
+        Forward speed at each track point (m/s).
+    heading : numpy.ndarray
+        Track heading at each point (radians, Cartesian convention).
+    """
     # variables
     forward_speed = np.zeros((len(x)))
     heading = np.zeros((len(x)))
@@ -362,11 +459,61 @@ def compute_forward_speed_heading(t, x, y):
     return [forward_speed, heading]
 
 
-# definition to compute wind field
 def compute_wind_field(
-    r, phi, vmax, pc, rmax, pn, vtreal, phit, lat, dpdt, phi_spiral, xn, vt, phia
-):
-    # Discussion is asymmetry account for properly? I believe there should be a factor in front of ux/vy
+    r: "np.ndarray",
+    phi: "np.ndarray",
+    vmax: float,
+    pc: float,
+    rmax: float,
+    pn: float,
+    vtreal: float,
+    phit: float,
+    lat: float,
+    dpdt: float,
+    phi_spiral: float,
+    xn: float,
+    vt: float,
+    phia: float,
+) -> "np.ndarray":
+    """
+    Compute a 2-D wind-speed field for a parametric tropical-cyclone model.
+
+    Parameters
+    ----------
+    r : numpy.ndarray
+        Radii (m).
+    phi : numpy.ndarray
+        Azimuth angles (degrees, Cartesian convention).
+    vmax : float
+        Maximum sustained wind speed (m/s).
+    pc : float
+        Central pressure (hPa).
+    rmax : float
+        Radius of maximum winds (m).
+    pn : float
+        Background pressure (hPa).
+    vtreal : float
+        Storm translation speed (m/s).
+    phit : float
+        Track heading angle (degrees).
+    lat : float
+        Storm latitude (degrees).
+    dpdt : float
+        Rate of pressure change (hPa/h).
+    phi_spiral : float
+        Inflow angle (degrees).
+    xn : float
+        Holland profile exponent.
+    vt : float
+        Asymmetry correction speed (m/s).
+    phia : float
+        Asymmetry direction (degrees).
+
+    Returns
+    -------
+    wind_speed : numpy.ndarray
+        2-D array of wind speed (m/s) with shape ``(n_phi, n_r)``.
+    """
     vms = vmax - vt
 
     # compute wind profile (vr and pr)

@@ -1,15 +1,65 @@
+"""
+GUI-driven tropical-cyclone track selector popup.
+
+Provides :func:`track_selector`, which opens a Guitars popup window containing
+an interactive map and filter controls.  The user can filter the cyclone track
+dataset by location, year range, and intensity, then select a single track to
+return to the caller.
+"""
+
 import os
+
 from geopandas import GeoDataFrame
+from pyproj import Transformer
 from shapely.geometry import Point
-from pyproj import CRS, Transformer
 
 # Make gui and map globally available in this module
 gui = None
 map = None
 
+
 def track_selector(
-    dataset, app, lon=0.0, lat=0.0, distance=1000.0, year_min=1850, year_max=2030, vmax_min=0.0, vmax_max=1000.0
-):
+    dataset,
+    app,
+    lon: float = 0.0,
+    lat: float = 0.0,
+    distance: float = 1000.0,
+    year_min: int = 1850,
+    year_max: int = 2030,
+    vmax_min: float = 0.0,
+    vmax_max: float = 1000.0,
+) -> tuple:
+    """
+    Open a GUI popup to let the user pick a tropical-cyclone track.
+
+    Parameters
+    ----------
+    dataset : CycloneTrackDataset
+        The track dataset to search.
+    app : DelftDashboard
+        The main application object (provides ``app.gui``).
+    lon : float, optional
+        Initial longitude of the search centre (degrees).
+    lat : float, optional
+        Initial latitude of the search centre (degrees).
+    distance : float, optional
+        Search radius (km).
+    year_min : int, optional
+        Minimum year filter.
+    year_max : int, optional
+        Maximum year filter.
+    vmax_min : float, optional
+        Minimum wind speed filter (knots).
+    vmax_max : float, optional
+        Maximum wind speed filter (knots).
+
+    Returns
+    -------
+    track : TropicalCyclone or None
+        The selected track object, or ``None`` if the dialog was cancelled.
+    okay : bool
+        ``True`` if the user confirmed a selection.
+    """
     global gui
 
     gui = app.gui
@@ -42,10 +92,13 @@ def track_selector(
 
 
 def map_ready(*args):
-
     global map
 
-    map = gui.popup_window["track_selector"].find_element_by_id("track_selector_map").widget
+    map = (
+        gui.popup_window["track_selector"]
+        .find_element_by_id("track_selector_map")
+        .widget
+    )
 
     map.jump_to(0.0, 0.0, 1)
 
@@ -60,16 +113,17 @@ def map_ready(*args):
         line_style="--",
     )
 
-    layer.add_layer("tracks",
-                  type="line_selector",
-                  file_name="tracks.geojson",
-                  select=select_track,
-                  selection_type="single",
-                  line_color="dodgerblue",
-                  line_width=2,
-                  line_color_selected="red",
-                  line_width_selected=3,
-                  hover_param="description",
+    layer.add_layer(
+        "tracks",
+        type="line_selector",
+        file_name="tracks.geojson",
+        select=select_track,
+        selection_type="single",
+        line_color="dodgerblue",
+        line_width=2,
+        line_color_selected="red",
+        line_width_selected=3,
+        hover_param="description",
     )
 
     # Update data in tracks layer
@@ -78,7 +132,6 @@ def map_ready(*args):
 
 
 def update_tracks():
-
     data = gui.popup_data
 
     tdb = data["track_selector"]["track_dataset"]
@@ -94,8 +147,13 @@ def update_tracks():
 
     # Get indices based on filter
     storm_indices = tdb.filter(
-        lon=lon, lat=lat, distance=distance, year_min=year_min, year_max=year_max,
-        vmax_min=vmax_min, vmax_max=vmax_max
+        lon=lon,
+        lat=lat,
+        distance=distance,
+        year_min=year_min,
+        year_max=year_max,
+        vmax_min=vmax_min,
+        vmax_max=vmax_max,
     )
 
     if len(storm_indices) == 0:
@@ -106,7 +164,6 @@ def update_tracks():
         gui.setvar("cyclone_track_selector", "storm_index", 0)
 
     else:
-
         # Get GeoDataFrame of tracks
         gdf = tdb.to_gdf(index=storm_indices)
 
@@ -119,11 +176,15 @@ def update_tracks():
         # storm_names and storm_indices are not sorted alphabetically
 
         # We want the names in alphabetical order, so sort storm_names AND storm_indices accordingly, using zip
-        storm_names, storm_indices = zip(*sorted(zip(storm_names_unsorted, storm_indices_unsorted)))
+        storm_names, storm_indices = zip(
+            *sorted(zip(storm_names_unsorted, storm_indices_unsorted))
+        )
 
         gui.setvar("cyclone_track_selector", "storm_names", storm_names)
         gui.setvar("cyclone_track_selector", "storm_indices", storm_indices)
-        gui.setvar("cyclone_track_selector", "storm_indices_unsorted", storm_indices_unsorted)
+        gui.setvar(
+            "cyclone_track_selector", "storm_indices_unsorted", storm_indices_unsorted
+        )
 
         # Get the original storm name
         storm_index = gui.getvar("cyclone_track_selector", "storm_index")
@@ -136,15 +197,16 @@ def update_tracks():
             # Original storm not in the list, select the first one
             selected_index = 0
 
-        storm_index = storm_indices[selected_index]    
+        storm_index = storm_indices[selected_index]
 
-        gui.setvar("cyclone_track_selector", "storm_index", storm_index)        
+        gui.setvar("cyclone_track_selector", "storm_index", storm_index)
 
         map_index = storm_indices_unsorted.index(storm_index)
 
         map.layer["track_selector"].layer["tracks"].set_data(gdf, map_index)
 
     gui.popup_window["track_selector"].update()
+
 
 def update_circle():
     lon = gui.getvar("cyclone_track_selector", "lon")
@@ -164,23 +226,29 @@ def update_circle():
 def map_moved(coords, widget):
     pass
 
+
 def select_track(feature, widget):
     storm_index = feature["properties"]["dataset_index"]
     gui.popup_data["track_selector"]["dataset_index"] = storm_index
     gui.setvar("cyclone_track_selector", "storm_index", storm_index)
     gui.popup_window["track_selector"].update()
 
+
 def select_track_from_list(*args):
     storm_index = gui.getvar("cyclone_track_selector", "storm_index")
     gui.popup_data["track_selector"]["dataset_index"] = storm_index
-    storm_indices_unsorted = gui.getvar("cyclone_track_selector", "storm_indices_unsorted")
+    storm_indices_unsorted = gui.getvar(
+        "cyclone_track_selector", "storm_indices_unsorted"
+    )
     # Get the index of the track on the map (need to find it in the unsorted list!)
     map_index = storm_indices_unsorted.index(storm_index)
     map.layer["track_selector"].layer["tracks"].set_selected_index(map_index)
 
+
 def edit_filter(val, widget):
     update_tracks()
     update_circle()
+
 
 def reset_search_location(*args):
     crds = map.map_center

@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
 """
-Created on Sun Apr 25 10:58:08 2021
+jtwc sub-package: tools for downloading and parsing JTWC tropical-cyclone advisories.
 
-@author: ormondt
+Provides functions to download JMV 3.0 (.tcw) files from the JTWC RSS feed,
+organise them by basin/year/storm, and find track files that intersect a
+forecast domain.
 """
-

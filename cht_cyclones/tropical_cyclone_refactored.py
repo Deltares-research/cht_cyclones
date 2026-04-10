@@ -1,17 +1,11 @@
-# -*- coding: utf-8 -*-
 """
-Tropical Cyclone Module in the Coastal Hazards Toolkit
+Tropical Cyclone module for the Coastal Hazards Toolkit (cht_cyclones).
 
-Module supports two classes
-    TropicalCyclone:             deterministic simulations
-    TropicalCycloneEnsemble      probabilistic simulations using the simplified DeMaria et al. (2009) approach
-
-    To do list - 'nice to haves'
-        make reading of ddb_cyc not file size related but using actual keywords (since format are changing)
-        => also remove spiderweb keywords and make it only related to the actual track (2 files?)
-        add more reading formats (e.g. NHC, JTWC, etc.)
-        enable coordinate conversions; now it is all WGS 84
-        add more rainfall methods + allow for scaling of rainfall in ensembles
+Primary public class: :class:`TropicalCyclone`, which wraps a
+:class:`~cht_cyclones.track.TropicalCycloneTrack` and a
+:class:`~cht_cyclones.spiderweb.TropicalCycloneSpiderweb` and provides methods
+to read/write tracks, compute parametric wind fields, and generate probabilistic
+ensembles via :class:`~cht_cyclones.ensemble.TropicalCycloneEnsemble`.
 """
 
 # Standard Library Imports
@@ -46,9 +40,36 @@ pd.options.mode.chained_assignment = None
 
 # Classes of the Tropical Cyclone module
 class TropicalCyclone:
-    # Init
-    def __init__(self, name="no_name", track_file=None, config_file=None, tau=0):
-        """Initialize the Tropical Cyclone object"""
+    """
+    Deterministic tropical-cyclone object.
+
+    Combines a track (:class:`~cht_cyclones.track.TropicalCycloneTrack`) with
+    a spiderweb wind field
+    (:class:`~cht_cyclones.spiderweb.TropicalCycloneSpiderweb`) and a
+    configuration dictionary that controls the parametric wind-profile settings.
+
+    Parameters
+    ----------
+    name : str, optional
+        Human-readable storm name.
+    track_file : str or list of str, optional
+        Path(s) to one or more track files.  When a list is given the tracks
+        are merged in chronological order.
+    config_file : str, optional
+        Path to a TOML configuration file.
+    tau : int, optional
+        Lead-time offset (hours); track points before ``tau`` hours are
+        discarded when reading the track.
+    """
+
+    def __init__(
+        self,
+        name: str = "no_name",
+        track_file=None,
+        config_file: str | None = None,
+        tau: int = 0,
+    ) -> None:
+        """Initialise the TropicalCyclone object."""
 
         # Name
         self.name = name
@@ -72,7 +93,8 @@ class TropicalCyclone:
         # Spiderweb wind field
         self.spiderweb = TropicalCycloneSpiderweb()
 
-    def set_default_config(self):
+    def set_default_config(self) -> None:
+        """Reset the configuration dictionary to built-in defaults."""
         self.config = {}
         self.config["wind_profile"] = "holland2010"
         self.config["wind_pressure_relation"] = "holland2008"
@@ -92,8 +114,15 @@ class TropicalCyclone:
         self.config["nr_directional_bins"] = 36
         self.config["tref"] = "20000101 000000"
 
-    def read_config(self, config_file):
-        """Read the configuration file (toml format)"""
+    def read_config(self, config_file: str) -> None:
+        """
+        Read a TOML configuration file and update ``self.config``.
+
+        Parameters
+        ----------
+        config_file : str
+            Path to the TOML configuration file.
+        """
         with open(config_file, "r") as f:
             cfg = toml.load(f)
         self.set_default_config()
@@ -101,8 +130,15 @@ class TropicalCyclone:
         for key in cfg:
             self.config[key] = cfg[key]
 
-    def write_config(self, config_file):
-        """Write the configuration file (toml format)"""
+    def write_config(self, config_file: str) -> None:
+        """
+        Write the current configuration to a TOML file.
+
+        Parameters
+        ----------
+        config_file : str
+            Output file path; parent directories are created if absent.
+        """
         # Get path of the file
         path = os.path.dirname(config_file)
         if path and not os.path.exists(path):
@@ -110,7 +146,17 @@ class TropicalCyclone:
         with open(config_file, "w") as file:
             toml.dump(self.config, file)
 
-    def read_track(self, filename, format="cyc"):
+    def read_track(self, filename: str, format: str = "cyc") -> None:
+        """
+        Read a track file and update ``self.track`` and ``self.config``.
+
+        Parameters
+        ----------
+        filename : str
+            Path to the track file.
+        format : str, optional
+            File format hint passed to :meth:`TropicalCycloneTrack.read`.
+        """
         # Read track file (automatically determine format)
         config, name, advisory = self.track.read(filename, format=format)
         if config is not None:
@@ -119,10 +165,20 @@ class TropicalCyclone:
             # Now loop over keys in cfg and update self.config
             for key in config:
                 self.config[key] = config[key]
-        self.name = name        
+        self.name = name
         self.advisory = advisory
 
-    def read_track_files_and_merge(self, track_file_list, tau=0):
+    def read_track_files_and_merge(self, track_file_list: list, tau: int = 0) -> None:
+        """
+        Read multiple track files and merge them into ``self.track``.
+
+        Parameters
+        ----------
+        track_file_list : list of str
+            Ordered list of track file paths.
+        tau : int, optional
+            Lead-time offset (hours) applied to all files except the first.
+        """
         # Read track files and merge them
         self.track = TropicalCycloneTrack()
         for itrack, track_file in enumerate(track_file_list):
@@ -422,7 +478,7 @@ class TropicalCyclone:
         vstr = ["ne", "se", "sw", "nw"]
         # Loop through time
         for it in range(len(resulting_track.gdf)):
-            print("Time step : " + str(it))
+            print(f"Time step : {it}")
             for ir in range(4):
                 iok = 0
                 ibst = 0
@@ -456,24 +512,17 @@ class TropicalCyclone:
 
                 #                print("Mean error for " + rstr[ir] + " : " + '{0:.1f}'.format(r_diff_radius_mean[it, ir]) + " NM (" + '{0:.0f}'.format(r_diff_radius_rel_mean[it, ir]) + " %)" + "    - " + str(iok) + " OK, " + str(ibst) + " Best, " + str(ires) + " Result")
                 print(
-                    "Mean error for "
-                    + rstr[ir]
-                    + " : "
-                    + "{0:.1f}".format(r_diff_radius_mean[it, ir])
-                    + " NM ("
-                    + "{0:.0f}".format(r_diff_radius_rel_mean[it, ir])
-                    + " %)"
+                    f"Mean error for {rstr[ir]} : "
+                    f"{r_diff_radius_mean[it, ir]:.1f} NM "
+                    f"({r_diff_radius_rel_mean[it, ir]:.0f} %)"
                 )
 
             r_diff_mean[it] = np.nanmean(r_diff_radius_mean[it, :])
             r_diff_rel_mean[it] = np.nanmean(r_diff_radius_rel_mean[it, :])
 
             print(
-                "Mean error for all : "
-                + "{0:.1f}".format(r_diff_mean[it])
-                + " NM ("
-                + "{0:.0f}".format(r_diff_rel_mean[it])
-                + " %)"
+                f"Mean error for all : {r_diff_mean[it]:.1f} NM "
+                f"({r_diff_rel_mean[it]:.0f} %)"
             )
 
     def make_ensemble(self, **kwargs):
@@ -497,36 +546,56 @@ class TropicalCyclone:
         radius = self.spiderweb.ds["range"].values[-1]
         for itime, time in enumerate(times):
             # Get spiderweb at one time. Return a XR Dataset
-            # Only do this for the times that are witin the track
+            # Only do this for the times that are within the track
             # time = time.replace(tzinfo=None)
-            if time < self.spiderweb.ds["time"].values[0] or time > self.spiderweb.ds["time"].values[-1]:
+            if (
+                time < self.spiderweb.ds["time"].values[0]
+                or time > self.spiderweb.ds["time"].values[-1]
+            ):
                 continue
-            x0, y0, u, v, p, pr = self.spiderweb.get_data_at_time(time, lon, lat) # lon and lat can also be numpy arrays
+            x0, y0, u, v, p, pr = self.spiderweb.get_data_at_time(
+                time, lon, lat
+            )  # lon and lat can also be numpy arrays
 
             # Determine weight based on distance to eye x0, y0
             # Weight is 1 where distance / radius < merge_frac, and 0 where distance / radius > 1
             # In between, weight is a linear function of distance
             dx = (lon - x0) * 111320 * np.cos(y0 * np.pi / 180)
             dy = (lat - y0) * 111320
-            distance = np.sqrt(dx ** 2 + dy ** 2)
+            distance = np.sqrt(dx**2 + dy**2)
             merge_frac = 0.5
             weight = np.zeros(np.shape(distance))
             weight[(distance >= 0) & (distance < radius * merge_frac)] = 1
-            weight[(distance >= radius * merge_frac) & (distance < radius)] = (radius - distance[(distance >= radius * merge_frac) & (distance < radius)]) / (radius * (1 - merge_frac))
+            weight[(distance >= radius * merge_frac) & (distance < radius)] = (
+                radius
+                - distance[(distance >= radius * merge_frac) & (distance < radius)]
+            ) / (radius * (1 - merge_frac))
 
             # Loop through variables in ds and merge with meteo_dataset_in
             if u is not None:
                 var = "wind_u"
-                meteo_dataset_in.ds[var].values[itime, :, :] = meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight) + u * weight
+                meteo_dataset_in.ds[var].values[itime, :, :] = (
+                    meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight)
+                    + u * weight
+                )
             if v is not None:
                 var = "wind_v"
-                meteo_dataset_in.ds[var].values[itime, :, :] = meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight) + v * weight
+                meteo_dataset_in.ds[var].values[itime, :, :] = (
+                    meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight)
+                    + v * weight
+                )
             if p is not None:
                 var = "barometric_pressure"
-                meteo_dataset_in.ds[var].values[itime, :, :] = meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight) + p * weight
+                meteo_dataset_in.ds[var].values[itime, :, :] = (
+                    meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight)
+                    + p * weight
+                )
             if pr is not None:
                 var = "precipitation"
-                meteo_dataset_in.ds[var].values[itime, :, :] = meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight) + pr * weight
+                meteo_dataset_in.ds[var].values[itime, :, :] = (
+                    meteo_dataset_in.ds[var].values[itime, :, :] * (1 - weight)
+                    + pr * weight
+                )
 
         return meteo_dataset_in
 
@@ -608,9 +677,9 @@ class TropicalCyclone:
 
             # Get the time difference between tt and coamps_cycle_time in hours
             tau = int(((tt - coamps_cycle_time).total_seconds() / 3600))
-            taustr = "tau" + str(tau).zfill(3)
+            taustr = f"tau{str(tau).zfill(3)}"
 
-            print("Time step : " + str(it) + " - " + str(tt) + " - " + taustr)
+            print(f"Time step : {it} - {tt} - {taustr}")
 
             # First do high-res d03
 

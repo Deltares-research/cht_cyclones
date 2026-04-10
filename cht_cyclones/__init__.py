@@ -13,7 +13,7 @@ from cht_cyclones.track import TropicalCycloneTrack
 from cht_cyclones.track_database import CycloneTrackDatabase
 from cht_cyclones.track_dataset import CycloneTrackDataset
 from cht_cyclones.track_selector import track_selector
-from cht_cyclones.tropical_cyclone_refactored import TropicalCyclone
+from cht_cyclones.tropical_cyclone import TropicalCyclone
 
 __all__ = [
     "TropicalCycloneTrack",

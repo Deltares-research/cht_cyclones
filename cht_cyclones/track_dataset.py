@@ -3,7 +3,7 @@ Single tropical-cyclone track dataset (e.g., IBTrACS).
 
 Provides :class:`CycloneTrackDataset`, which reads an IBTrACS NetCDF file,
 exposes per-storm metadata, and can filter and return individual tracks as
-:class:`~cht_cyclones.tropical_cyclone_refactored.TropicalCyclone` objects.
+:class:`~cht_cyclones.tropical_cyclone.TropicalCyclone` objects.
 """
 
 import datetime
@@ -20,7 +20,7 @@ import xarray as xr
 from botocore import UNSIGNED
 from botocore.client import Config
 
-from cht_cyclones.tropical_cyclone_refactored import TropicalCyclone
+from cht_cyclones.tropical_cyclone import TropicalCyclone
 
 
 class CycloneTrackDataset:

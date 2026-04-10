@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from cht_cyclones.cyclone_track_database import CycloneTrackDatabase
+from cht_cyclones.cyclone_track_dataset import CycloneTrackDataset
 from cht_cyclones.tropical_cyclone import TropicalCyclone
 
 
@@ -19,8 +19,8 @@ def tmp_dir():
 
 @pytest.fixture()
 def track_idai() -> TropicalCyclone:
-    database_file = Path(__file__).parent / "IBTrACS.ALL.v04r00.nc"
-    db = CycloneTrackDatabase("ibtracs", file_name=database_file)
+    dataset_file = Path(__file__).parent / "IBTrACS.ALL.v04r00.nc"
+    db = CycloneTrackDataset("ibtracs", file_name=dataset_file)
     ind = db.list_names().index("IDAI")
     tc = db.get_track(index=ind)
 

@@ -25,7 +25,7 @@ def test_read_TRK_forecasted(tmp_dir):
     )
 
     # Write as cyc
-    tc.write_track(tmp_dir / "forecasted_track_Maria.cyc", "ddb_cyc")
+    tc.write_track(tmp_dir / "forecasted_track_Maria.cyc")
 
     # create (regular) ASCII spiderweb
     tc.to_spiderweb(tmp_dir / "forecasted_track_Maria.spw")

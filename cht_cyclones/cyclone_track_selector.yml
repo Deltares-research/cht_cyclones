@@ -26,7 +26,7 @@ element:
     y: 45
     width: 50
     height: 20
-  tooltip: Start year for searching cyclone tracks  
+  tooltip: Start year for searching cyclone tracks
 - style: edit
   variable: year1
   method: edit_filter
@@ -35,7 +35,7 @@ element:
     y: 45
     width: 50
     height: 20
-  tooltip: End year for searching cyclone tracks  
+  tooltip: End year for searching cyclone tracks
 - style: edit
   variable: vmax0
   method: edit_filter
@@ -45,7 +45,7 @@ element:
     y: 20
     width: 50
     height: 20
-  tooltip: Minimum maximum wind speed for searching cyclone tracks    
+  tooltip: Minimum maximum wind speed for searching cyclone tracks
 - style: edit
   variable: vmax1
   method: edit_filter
@@ -64,7 +64,7 @@ element:
     y: 70
     width: 50
     height: 20
-  tooltip: Longitude of circle centre for searching cyclone tracks    
+  tooltip: Longitude of circle centre for searching cyclone tracks
 - style: edit
   variable: lat
   method: edit_filter

@@ -72,9 +72,9 @@ def test_read_ddb_cyc(tmp_dir, track_idai: TropicalCyclone):
     }
 
     for key, value in expected_first_line.items():
-        assert (
-            first_row[key] == value
-        ), f"{key} does not match expected: {first_row[key]} != {value}"
+        assert first_row[key] == value, (
+            f"{key} does not match expected: {first_row[key]} != {value}"
+        )
 
 
 def test_read_invalid_format():

@@ -40,6 +40,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 tests = ["pytest", "pytest-cov"]
 lint = ["pre-commit"]
+build = ["setuptools", "wheel", "build"]
 
 [tool.setuptools]
 zip-safe = true

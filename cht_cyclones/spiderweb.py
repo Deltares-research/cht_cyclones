@@ -678,7 +678,7 @@ class TropicalCycloneSpiderweb:
 
         # Find the index of the closest radius and azimuth
         ir = (distance / dr).astype(int)
-        ir[np.where(ir >= len(radius))] = -1
+        ir[ir >= len(radius)] = -1
         # phi goes from 90 to -260 in step of dphi, so find the index of the closest
         # azimuth is typically a 2D array
         iphi = (-dazimuth / dphi).astype(int)

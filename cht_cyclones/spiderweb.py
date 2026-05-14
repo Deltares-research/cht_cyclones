@@ -463,18 +463,20 @@ class TropicalCycloneSpiderweb:
                 wv = self.ds["wind_y"].values[it, :, :]
                 wind_speed = np.sqrt(wu**2 + wv**2)
                 wind_from_direction = 270.0 - np.arctan2(wv, wu) * 180 / np.pi
+                # Convert to 0-360 range
+                wind_from_direction = np.mod(wind_from_direction, 360.0)
                 pressure_drop = (
                     background_pressure * 100 - self.ds["pressure"].values[it, :, :]
                 )
                 if include_rainfall:
                     rainfall_rate = self.ds["precipitation"].values[it, :, :]
 
-                # Replace NaN with -999
-                wind_speed = np.nan_to_num(wind_speed, nan=-999)
-                wind_from_direction = np.nan_to_num(wind_from_direction, nan=-999)
-                pressure_drop = np.nan_to_num(pressure_drop, nan=-999)
+                # Replace NaN with 0.0
+                wind_speed = np.nan_to_num(wind_speed, nan=0.0)
+                wind_from_direction = np.nan_to_num(wind_from_direction, nan=0.0)
+                pressure_drop = np.nan_to_num(pressure_drop, nan=0.0)
                 if include_rainfall:
-                    rainfall_rate = np.nan_to_num(rainfall_rate, nan=-999)
+                    rainfall_rate = np.nan_to_num(rainfall_rate, nan=0.0)
 
                 # Get coordinates
                 lon = self.ds["longitude_eye"].values[it]

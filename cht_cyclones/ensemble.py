@@ -21,6 +21,7 @@ from shapely.geometry import LineString, Point
 from shapely.ops import unary_union
 
 from .spiderweb import TropicalCycloneSpiderweb
+from .track import TropicalCycloneTrack
 from .utils import gdf_to_geojson_js, gdf_to_pli
 
 # Settings
@@ -171,6 +172,80 @@ class TropicalCycloneEnsemble:
         member = TropicalCycloneEnsembleMember()
         member.tropical_cyclone = self.tropical_cyclone
         self.members.append(member)
+
+    def generate_from_track_files(
+        self,
+        track_folder,
+        spiderweb_radius=None,
+        nr_radial_bins=None,
+        nr_directional_bins=None,
+    ):
+        """Build ensemble members from existing track (.cyc) files.
+
+        Each ``.cyc`` file in ``track_folder`` becomes one member. The member
+        starts as a copy of the best track (so it keeps the pre-cycle
+        analysis/history) onto which the forecast track from the cyc file is
+        grafted; a parametric (Holland) spiderweb wind field is then computed
+        for the merged track. The member's name is the file stem; its track
+        and spiderweb are written to ``self.track_path`` and ``self.spw_path``,
+        and the member is appended to ``self.members``.
+        ``self.number_of_realizations`` is updated to the number of files read.
+
+        This is the counterpart of :meth:`generate`, which instead perturbs
+        the best track with random (DeMaria) errors.
+
+        Parameters
+        ----------
+        track_folder : str
+            Folder containing the ``.cyc`` track files.
+        spiderweb_radius : float, optional
+            Spiderweb radius in km. Defaults to each track's config value.
+        nr_radial_bins : int, optional
+            Number of radial bins. Defaults to each track's config value.
+        nr_directional_bins : int, optional
+            Number of directional bins. Defaults to each track's config value.
+        """
+        track_files = sorted(
+            file for file in os.listdir(track_folder) if file.endswith(".cyc")
+        )
+        self.number_of_realizations = len(track_files)
+
+        ext = ".spw" if self.format == "ascii" else ".nc"
+
+        for track_file in track_files:
+            member_name = os.path.splitext(track_file)[0]
+            print(
+                f"Generating ensemble member {member_name} "
+                f"({len(self.members)} of {self.number_of_realizations}) ..."
+            )
+            member = TropicalCycloneEnsembleMember()
+            member.name = member_name
+            # Start from a copy of the best track (keeps the pre-cycle history)
+            # but drop its wind field; it is recomputed below for the merged track.
+            member.tropical_cyclone = copy.deepcopy(self.tropical_cyclone)
+            member.tropical_cyclone.spiderweb = TropicalCycloneSpiderweb()
+            # Graft the forecast track from the cyc file onto the best track.
+            forecast_track = TropicalCycloneTrack()
+            forecast_track.read(os.path.join(track_folder, track_file))
+            member.tropical_cyclone.track.add(forecast_track)
+            if spiderweb_radius is not None:
+                member.tropical_cyclone.config["spiderweb_radius"] = spiderweb_radius
+            if nr_radial_bins is not None:
+                member.tropical_cyclone.config["nr_radial_bins"] = nr_radial_bins
+            if nr_directional_bins is not None:
+                member.tropical_cyclone.config["nr_directional_bins"] = (
+                    nr_directional_bins
+                )
+            # Write the track file to the ensemble track folder
+            member.tropical_cyclone.track.write(
+                os.path.join(self.track_path, member_name + ".cyc")
+            )
+            # Compute the parametric wind field and write the spiderweb
+            member.tropical_cyclone.compute_wind_field(
+                filename=os.path.join(self.spw_path, member_name + ext),
+                format=self.format,
+            )
+            self.members.append(member)
 
     def generate(self):
         """Compute the ensemble members."""

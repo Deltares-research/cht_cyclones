@@ -463,8 +463,8 @@ class CycloneTrackDataset:
         dlon = lon2 - lon1
 
         # Wrap around
-        dlon[np.where(dlon < -np.pi)] = dlon[np.where(dlon < -np.pi)] + 2 * np.pi
-        dlon[np.where(dlon > np.pi)] = dlon[np.where(dlon > np.pi)] - 2 * np.pi
+        dlon[dlon < -np.pi] += 2 * np.pi
+        dlon[dlon > np.pi] -= 2 * np.pi
         dlat = lat2 - lat1
 
         # Compute distance

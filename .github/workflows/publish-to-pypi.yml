@@ -39,7 +39,7 @@ on:
 
 env:
   PACKAGE_NAME: "cht-cyclones"
-  PYTHON_VERSION: "3.10"
+  PYTHON_VERSION: "3.13"
 
 jobs:
 
@@ -49,7 +49,7 @@ jobs:
       new_version: ${{ steps.release.outputs.new_version }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
 
       - name: Extract tag and Details
         id: release
@@ -96,34 +96,22 @@ jobs:
     needs: [details, check_pypi]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: conda-incubator/setup-miniconda@v3
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          auto-update-conda: true
-          channels: conda-forge
-
-      - name: Create environment
-        shell: bash -el {0}
-        run: |
-          conda create -n publish python=${{ env.PYTHON_VERSION }}
-
-      - name: Install Build tools
-        shell: bash -el {0}
-        run: |
-          conda install -n publish pip setuptools wheel python-build
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        shell: bash -el {0}
         run: |
-          conda run -n publish pip install .
+          uv sync --locked --all-extras
 
       - name: Build source and wheel distribution
         run: |
-          conda run -n publish python -s -m build
+          uv run python -s -m build
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -139,13 +127,13 @@ jobs:
       id-token: write
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
 
       - name: Publish distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@release/v1.14
 
   github_release:
     name: Create GitHub Release
@@ -155,12 +143,12 @@ jobs:
       contents: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/

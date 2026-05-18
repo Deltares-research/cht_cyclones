@@ -15,9 +15,9 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11, <3.14"
 dependencies = [
-    "numpy",
+    "numpy>2",
     "scipy",
     "pandas",
     "geopandas",
@@ -39,6 +39,8 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 tests = ["pytest", "pytest-cov"]
+lint = ["pre-commit"]
+build = ["setuptools", "wheel", "build"]
 
 [tool.setuptools]
 zip-safe = true

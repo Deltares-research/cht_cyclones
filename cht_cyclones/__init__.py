@@ -4,7 +4,7 @@ Exposes the primary public API: TropicalCyclone, TropicalCycloneTrack,
 CycloneTrackDatabase, CycloneTrackDataset, and the track_selector helper.
 """
 
-__version__ = "1.0.3"
+__version__ = "2.0.0"
 
 # jtwc must be imported AFTER TropicalCyclone to avoid circular imports
 # import cht_cyclones.jtwc.jtwc as jtwc  # noqa: I001

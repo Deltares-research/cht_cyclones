@@ -41,6 +41,7 @@ class CycloneTrackDatabase:
         s3_bucket: str | None = None,
         s3_key: str | None = None,
         s3_region: str | None = None,
+        s3_endpoint: str | None = None,
         check_online: bool = False,
     ) -> None:
         self.path = path
@@ -49,6 +50,8 @@ class CycloneTrackDatabase:
         self.s3_bucket = s3_bucket
         self.s3_key = s3_key
         self.s3_region = s3_region
+        # Endpoint URL for S3-compatible stores (None = AWS S3)
+        self.s3_endpoint = s3_endpoint
         self.read()
         if check_online:
             self.check_online_database()
@@ -94,6 +97,11 @@ class CycloneTrackDatabase:
 
             if dataset_format.lower() == "ibtracs":
                 dataset = CycloneTrackDataset(name, path)
+                # Hand the store endpoint down (dataset s3_bucket/s3_key come
+                # from metadata.tml; a metadata-provided endpoint wins)
+                dataset.s3_endpoint = (
+                    getattr(dataset, "s3_endpoint", None) or self.s3_endpoint
+                )
             elif dataset_format.lower() == "hurdat2":
                 pass
 
@@ -109,7 +117,9 @@ class CycloneTrackDatabase:
         """
         if self.s3_client is None:
             self.s3_client = boto3.client(
-                "s3", config=Config(signature_version=UNSIGNED)
+                "s3",
+                endpoint_url=self.s3_endpoint or None,
+                config=Config(signature_version=UNSIGNED),
             )
         if self.s3_bucket is None:
             return

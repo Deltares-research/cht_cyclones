@@ -111,7 +111,9 @@ class CycloneTrackDataset:
         for file in self.files:
             if not os.path.exists(os.path.join(self.path, file)):
                 s3_client = boto3.client(
-                    "s3", config=Config(signature_version=UNSIGNED)
+                    "s3",
+                    endpoint_url=getattr(self, "s3_endpoint", None) or None,
+                    config=Config(signature_version=UNSIGNED),
                 )
                 break
         # Get all files defined in the toml file

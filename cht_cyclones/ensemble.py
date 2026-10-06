@@ -99,6 +99,8 @@ class TropicalCycloneEnsemble:
         mean_abs_ve24=6.9858,
         sc_ve=1.0000,
         bias_ve=0.0,
+        smooth_errors=True,
+        error_sample_interval=12.0,
         format="ascii",
     ):
         """Initialise the ensemble and set up the best-track member (member 0)."""
@@ -140,6 +142,10 @@ class TropicalCycloneEnsemble:
         )
         self.sc_ve = sc_ve  # auto-regression VE = 1 = no auto-regression
         self.bias_ve = bias_ve  # bias per hour
+        # Sample AR errors at coarse anchors and spline to the track time
+        # step (smooth tracks); False restores per-step innovations
+        self.smooth_errors = smooth_errors
+        self.error_sample_interval = error_sample_interval  # anchor spacing (h)
 
         self.tropical_cyclone = copy.deepcopy(tropical_cyclone)
 
@@ -290,6 +296,8 @@ class TropicalCycloneEnsemble:
                     self.mean_abs_ve24,
                     self.sc_ve,
                     self.bias_ve,
+                    smooth_errors=self.smooth_errors,
+                    error_sample_interval=self.error_sample_interval,
                 )
 
             fname = os.path.join(self.track_path, self.name + str(i).zfill(5) + ".cyc")
@@ -489,6 +497,8 @@ class TropicalCycloneEnsembleMember:
         mean_abs_ve24: float,
         sc_ve: float,
         bias_ve: float,
+        smooth_errors: bool = True,
+        error_sample_interval: float = 12.0,
     ) -> None:
         """
         Perturb the best-track positions and intensity with random errors.
@@ -496,6 +506,18 @@ class TropicalCycloneEnsembleMember:
         Along-track (ATE), cross-track (CTE), and intensity (VE) errors are
         generated as auto-regressive processes and applied to each track point
         after ``tstart_ensemble``.
+
+        With ``smooth_errors`` (default), the auto-regressive errors are
+        sampled at ``error_sample_interval``-hour anchor points only and
+        interpolated to the (finer) track time step with a shape-preserving
+        PCHIP spline, following the operational practice of the DeMaria et
+        al. (2009) NHC Monte Carlo model. This yields smooth ensemble tracks;
+        adding AR innovations at every fine time step instead (the
+        ``smooth_errors=False`` behaviour) produces non-differentiable,
+        erratic-looking tracks. Note that the splines operate on the scalar
+        error time series (metres along/across track, intensity in m/s), not
+        on latitude/longitude; the smooth errors are then applied to the
+        best-track positions through geodesic offsets.
 
         Parameters
         ----------
@@ -515,6 +537,11 @@ class TropicalCycloneEnsembleMember:
             Auto-regression scaling factor for VE.
         bias_ve : float
             Per-hour intensity bias added to VE.
+        smooth_errors : bool, optional
+            Sample the AR errors at coarse anchors and spline them to the
+            track time step (default True).
+        error_sample_interval : float, optional
+            Anchor spacing in hours for ``smooth_errors`` (default 12).
         """
         # Generate random track
 
@@ -533,17 +560,7 @@ class TropicalCycloneEnsembleMember:
 
         np.random.seed()
 
-        # Random error matrices from normal distribution
-        arnd0 = np.random.randn(ntpred)
-        crnd0 = np.random.randn(ntpred)
-        vrnd0 = np.random.randn(ntpred)
-
-        # Limit to -2 and +2 sigma
-        arnd0 = np.maximum(np.minimum(arnd0, 2.0), -2.0)
-        crnd0 = np.maximum(np.minimum(crnd0, 2.0), -2.0)
-        vrnd0 = np.maximum(np.minimum(vrnd0, 2.0), -2.0)
-
-        # Rest
+        # Error, position and intensity arrays on the fine (equidistant) axis
         ate = np.zeros((ntpred))
         cte = np.zeros((ntpred))
         ve = np.zeros((ntpred))
@@ -551,9 +568,6 @@ class TropicalCycloneEnsembleMember:
         y = np.zeros((ntpred))
         vmax = np.zeros((ntpred))
         wind_scale = np.zeros((ntpred)) + 1.0
-
-        # Correct for time
-        tfac = np.sqrt(dtd)
 
         # go from mean absolute error to standard deviation
         sigma_ate = mean_abs_ate24 / np.sqrt(2 / np.pi)
@@ -564,9 +578,6 @@ class TropicalCycloneEnsembleMember:
             sigma_ve = mean_abs_ve24 / np.sqrt(2 / np.pi)
         else:
             sigma_ve = mean_abs_ve24 * knots_to_ms / np.sqrt(2 / np.pi)
-
-        # Loop over time
-        forecast_timestep = 0.0
 
         # Find index of last time smaller or equal to tstart_ensemble
         it_start = 0
@@ -582,83 +593,195 @@ class TropicalCycloneEnsembleMember:
         x00 = self.equidistant_best_track.gdf.geometry[it_start].x
         y00 = self.equidistant_best_track.gdf.geometry[it_start].y
 
-        # Initial errors
-        ate_12 = 0.0
-        cte_12 = 0.0
-        ve_12 = 0.0
+        if smooth_errors:
+            # --------------------------------------------------------------
+            # Sample the AR(1) errors at coarse anchor times only (default
+            # every 12 h, as in the operational DeMaria et al. (2009) NHC
+            # Monte Carlo model) and interpolate the scalar error series to
+            # the fine track axis with a shape-preserving PCHIP spline.
+            # Adding AR innovations at every fine time step instead yields
+            # non-differentiable (erratic) tracks. Note that lat/lon are
+            # never splined: the smooth ATE/CTE series (in metres) are
+            # applied to the best-track positions as geodesic offsets below.
+            # --------------------------------------------------------------
+            from scipy.interpolate import PchipInterpolator
 
-        # Loop through times in equidistant best track gdf
-        for it in range(ntpred):
-            t = datetime.strptime(
-                self.equidistant_best_track.gdf.datetime[it], dateformat_module
+            times = [
+                datetime.strptime(d, dateformat_module)
+                for d in self.equidistant_best_track.gdf.datetime
+            ]
+            t_hours = np.array([(t - times[0]).total_seconds() / 3600.0 for t in times])
+            t_start_hours = (tstart_ensemble - times[0]).total_seconds() / 3600.0
+
+            # Anchor times: forecast start, then every error_sample_interval
+            # hours until the end of the track is covered
+            dtda = error_sample_interval / 24.0  # anchor interval in days
+            nr_intervals = int(
+                np.ceil(max(t_hours[-1] - t_start_hours, 0.0) / error_sample_interval)
             )
-            x0 = self.equidistant_best_track.gdf.geometry[it].x
-            y0 = self.equidistant_best_track.gdf.geometry[it].y
-            vmax0 = self.equidistant_best_track.gdf.vmax[it]
+            ta = t_start_hours + error_sample_interval * np.arange(nr_intervals + 1)
 
-            x[it] = x0
-            y[it] = y0
-            vmax[it] = vmax0
-
-            forecast_timestep = forecast_timestep + dtd * 24
-
-            # If we want the variability
-            if t > tstart_ensemble:
-                # standard deviation scales with tfac
-                arnd = tfac * sigma_ate * arnd0[it]
-                crnd = tfac * sigma_cte * crnd0[it]
-                vrnd = tfac * sigma_ve * vrnd0[it]
-
-                # Limit to -2 and +2 sigma
-                arnd = np.maximum(
-                    np.minimum(arnd, 2 * tfac * sigma_ate), -2 * tfac * sigma_ate
+            # AR(1) recursion at the anchors (zero error at the forecast start)
+            ate_a = np.zeros(len(ta))
+            cte_a = np.zeros(len(ta))
+            ve_a = np.zeros(len(ta))
+            for k in range(1, len(ta)):
+                arnd = min(max(np.random.randn(), -2.0), 2.0)
+                crnd = min(max(np.random.randn(), -2.0), 2.0)
+                vrnd = min(max(np.random.randn(), -2.0), 2.0)
+                ate_a[k] = (
+                    sc_ate**dtda * ate_a[k - 1] + np.sqrt(dtda) * sigma_ate * arnd
                 )
-                crnd = np.maximum(
-                    np.minimum(crnd, 2 * tfac * sigma_cte), -2 * tfac * sigma_cte
+                cte_a[k] = (
+                    sc_cte**dtda * cte_a[k - 1] + np.sqrt(dtda) * sigma_cte * crnd
                 )
-                vrnd = np.maximum(
-                    np.minimum(vrnd, 2 * tfac * sigma_ve), -2 * tfac * sigma_ve
+                ve_a[k] = sc_ve**dtda * ve_a[k - 1] + np.sqrt(dtda) * sigma_ve * vrnd
+
+            if len(ta) > 1:
+                tq = np.clip(t_hours, ta[0], ta[-1])
+                ate = PchipInterpolator(ta, ate_a)(tq)
+                cte = PchipInterpolator(ta, cte_a)(tq)
+                ve = PchipInterpolator(ta, ve_a)(tq)
+
+            # No perturbation up to the forecast start; the intensity bias
+            # grows linearly with forecast lead time
+            before = t_hours <= t_start_hours + 1.0e-6
+            ate[before] = 0.0
+            cte[before] = 0.0
+            ve[before] = 0.0
+            ve = ve + bias_ve * np.maximum(t_hours - t_start_hours, 0.0)
+
+            # Apply the (smooth) errors as geodesic offsets to the best track
+            for it in range(ntpred):
+                x0 = self.equidistant_best_track.gdf.geometry[it].x
+                y0 = self.equidistant_best_track.gdf.geometry[it].y
+                vmax0 = self.equidistant_best_track.gdf.vmax[it]
+
+                x[it] = x0
+                y[it] = y0
+                vmax[it] = vmax0
+
+                if times[it] > tstart_ensemble:
+                    # Compute track heading based on latitude / longitude of two points
+                    fwd_azimuth, back_azimuth, distance = geodesic.inv(x00, y00, x0, y0)
+                    # Along track error shift
+                    xa, ya, backaz = geodesic.fwd(
+                        x0, y0, fwd_azimuth, ate[it], radians=False
+                    )
+                    # Cross track error shift
+                    xc, yc, backaz = geodesic.fwd(
+                        xa, ya, fwd_azimuth + 90.0, cte[it], radians=False
+                    )
+                    x[it] = xc
+                    y[it] = yc
+
+                    # Let's make sure that the wind speed does not become negative
+                    ve_it = ve[it]
+                    if vmax0 + ve_it < 5.0:
+                        ve_it = max(5.0 - vmax0, 0.0)
+                    vmax[it] = vmax0 + ve_it
+                    wind_scale[it] = vmax[it] / vmax0
+
+        else:
+            # --------------------------------------------------------------
+            # Legacy behaviour: AR(1) innovations at every fine time step.
+            # Kept for comparison; produces erratic (non-differentiable)
+            # tracks when the resampling interval is small.
+            # --------------------------------------------------------------
+
+            # Random error matrices from normal distribution
+            arnd0 = np.random.randn(ntpred)
+            crnd0 = np.random.randn(ntpred)
+            vrnd0 = np.random.randn(ntpred)
+
+            # Limit to -2 and +2 sigma
+            arnd0 = np.maximum(np.minimum(arnd0, 2.0), -2.0)
+            crnd0 = np.maximum(np.minimum(crnd0, 2.0), -2.0)
+            vrnd0 = np.maximum(np.minimum(vrnd0, 2.0), -2.0)
+
+            # Correct for time
+            tfac = np.sqrt(dtd)
+
+            # Loop over time
+            forecast_timestep = 0.0
+
+            # Initial errors
+            ate_12 = 0.0
+            cte_12 = 0.0
+            ve_12 = 0.0
+
+            # Loop through times in equidistant best track gdf
+            for it in range(ntpred):
+                t = datetime.strptime(
+                    self.equidistant_best_track.gdf.datetime[it], dateformat_module
                 )
+                x0 = self.equidistant_best_track.gdf.geometry[it].x
+                y0 = self.equidistant_best_track.gdf.geometry[it].y
+                vmax0 = self.equidistant_best_track.gdf.vmax[it]
 
-                # Compute new track errors
-                at1 = sc_ate**dtd
-                ate[it] = at1 * ate_12 + arnd
-                ct1 = sc_cte**dtd
-                cte[it] = ct1 * cte_12 + crnd
+                x[it] = x0
+                y[it] = y0
+                vmax[it] = vmax0
 
-                # Compute track heading based on latitude / longitude of two points
-                fwd_azimuth, back_azimuth, distance = geodesic.inv(x00, y00, x0, y0)
+                forecast_timestep = forecast_timestep + dtd * 24
 
-                # Along track error shift
-                xa, ya, backaz = geodesic.fwd(
-                    x0,
-                    y0,
-                    fwd_azimuth,
-                    ate[it],
-                    radians=False,
-                )
+                # If we want the variability
+                if t > tstart_ensemble:
+                    # standard deviation scales with tfac
+                    arnd = tfac * sigma_ate * arnd0[it]
+                    crnd = tfac * sigma_cte * crnd0[it]
+                    vrnd = tfac * sigma_ve * vrnd0[it]
 
-                # Cross track error shift
-                xc, yc, backaz = geodesic.fwd(
-                    xa, ya, fwd_azimuth + 90.0, cte[it], radians=False
-                )
+                    # Limit to -2 and +2 sigma
+                    arnd = np.maximum(
+                        np.minimum(arnd, 2 * tfac * sigma_ate), -2 * tfac * sigma_ate
+                    )
+                    crnd = np.maximum(
+                        np.minimum(crnd, 2 * tfac * sigma_cte), -2 * tfac * sigma_cte
+                    )
+                    vrnd = np.maximum(
+                        np.minimum(vrnd, 2 * tfac * sigma_ve), -2 * tfac * sigma_ve
+                    )
 
-                x[it] = xc
-                y[it] = yc
+                    # Compute new track errors
+                    at1 = sc_ate**dtd
+                    ate[it] = at1 * ate_12 + arnd
+                    ct1 = sc_cte**dtd
+                    cte[it] = ct1 * cte_12 + crnd
 
-                # Do wind speed too
-                ve1 = sc_ve**dtd
-                ve[it] = ve1 * ve_12 + vrnd + bias_ve * forecast_timestep
-                # Let's make sure that the wind speed does not become negative
-                if vmax0 + ve[it] < 5.0:
-                    ve[it] = max(5.0 - vmax0, 0.0)
-                vmax[it] = vmax0 + ve[it]
-                wind_scale[it] = vmax[it] / vmax0
+                    # Compute track heading based on latitude / longitude of two points
+                    fwd_azimuth, back_azimuth, distance = geodesic.inv(x00, y00, x0, y0)
 
-                # Save errors from last iteration
-                ate_12 = ate[it]
-                cte_12 = cte[it]
-                ve_12 = ve[it]
+                    # Along track error shift
+                    xa, ya, backaz = geodesic.fwd(
+                        x0,
+                        y0,
+                        fwd_azimuth,
+                        ate[it],
+                        radians=False,
+                    )
+
+                    # Cross track error shift
+                    xc, yc, backaz = geodesic.fwd(
+                        xa, ya, fwd_azimuth + 90.0, cte[it], radians=False
+                    )
+
+                    x[it] = xc
+                    y[it] = yc
+
+                    # Do wind speed too
+                    ve1 = sc_ve**dtd
+                    ve[it] = ve1 * ve_12 + vrnd + bias_ve * forecast_timestep
+                    # Let's make sure that the wind speed does not become negative
+                    if vmax0 + ve[it] < 5.0:
+                        ve[it] = max(5.0 - vmax0, 0.0)
+                    vmax[it] = vmax0 + ve[it]
+                    wind_scale[it] = vmax[it] / vmax0
+
+                    # Save errors from last iteration
+                    ate_12 = ate[it]
+                    cte_12 = cte[it]
+                    ve_12 = ve[it]
 
         # And now interpolate x, y, vmax and wind_scale on the equidistant best track, to the original time steps
 

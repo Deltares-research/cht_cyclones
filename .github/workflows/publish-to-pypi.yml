@@ -96,19 +96,15 @@ jobs:
     needs: [details, check_pypi]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
-        run: |
-          uv sync --locked --all-extras
-
       - name: Build source and wheel distribution
         run: |
-          uv run python -s -m build
+          uv build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7

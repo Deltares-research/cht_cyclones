@@ -15,7 +15,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
-requires-python = ">=3.11, <3.14"
+requires-python = ">=3.11"
 dependencies = [
     "numpy>2",
     "scipy",
@@ -30,7 +30,7 @@ dependencies = [
     "boto3",
     "requests",
     "beautifulsoup4",
-    "cht_utils@ git+https://github.com/deltares-research/cht_utils.git",
+    "cht_utils>=2.0.1",
     "geojson",
     "netCDF4",
     "feedparser",
